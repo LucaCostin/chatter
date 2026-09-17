@@ -3,8 +3,14 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import likeComment from '@salesforce/apex/ChatterConnectController.likeComment';
 import unlikeComment from '@salesforce/apex/ChatterConnectController.unlikeComment';
 import deleteComment from '@salesforce/apex/ChatterConnectController.deleteComment';
-import updateCommentWithFiles from '@salesforce/apex/ChatterConnectController.updateCommentWithFiles';
-import { reduceErrors, mentionTokensToLinks, wireTokensToComposerTokens } from 'c/emeraldChatterUtils';
+import updateComment from '@salesforce/apex/ChatterConnectController.updateComment';
+import {
+    reduceErrors,
+    stripHtml,
+    escapeHtml,
+    mentionTokensToLinks,
+    wireTokensToComposerTokens
+} from 'c/emeraldChatterUtils';
 
 export default class EmeraldChatterComment extends LightningElement {
 
@@ -20,7 +26,8 @@ export default class EmeraldChatterComment extends LightningElement {
     @track editSaving = false;
 
     @track isConfirmingDelete = false;
-    @track _text;
+
+    _text;
 
     connectedCallback() {
         this.liked     = this.comment.currentUserLike;
@@ -29,7 +36,9 @@ export default class EmeraldChatterComment extends LightningElement {
         this._text     = this.comment.text;
     }
 
-    // ===== Like =====
+    // ============================================================
+    //  LIKE
+    // ============================================================
 
     async handleLike() {
         if (this.liking) return;
@@ -62,10 +71,13 @@ export default class EmeraldChatterComment extends LightningElement {
         }
     }
 
-    // ===== Edit =====
+    // ============================================================
+    //  EDIT
+    // ============================================================
 
     handleEditClick() {
         this.isEditing = true;
+        // Convert server wire format → anchor pill for the RTE
         this.editValue = wireTokensToComposerTokens(this._text || '');
         // eslint-disable-next-line @lwc/lwc/no-async-operation
         setTimeout(() => {
@@ -87,16 +99,15 @@ export default class EmeraldChatterComment extends LightningElement {
     }
 
     async handleEditSubmit(event) {
-        const { text, contentVersionIds } = event.detail;
-        const plain = this._stripHtml(text || '').trim();
-        if (!plain && (!contentVersionIds || !contentVersionIds.length)) return;
+        const { text } = event.detail;
+        const plain = stripHtml(text || '').trim();
+        if (!plain) return;
 
         this.editSaving = true;
         try {
-            const updated = await updateCommentWithFiles({
+            const updated = await updateComment({
                 commentId: this.comment.id,
-                text: text || '',
-                newContentVersionIds: contentVersionIds || []
+                text: text || ''
             });
             this._text = updated.text;
             this.isEditing = false;
@@ -115,7 +126,9 @@ export default class EmeraldChatterComment extends LightningElement {
         }
     }
 
-    // ===== Delete =====
+    // ============================================================
+    //  DELETE
+    // ============================================================
 
     handleDeleteClick()  { this.isConfirmingDelete = true; }
     handleDeleteCancel() { this.isConfirmingDelete = false; }
@@ -136,44 +149,34 @@ export default class EmeraldChatterComment extends LightningElement {
         }
     }
 
-    _stripHtml(html) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        return tmp.textContent || tmp.innerText || '';
+    // ============================================================
+    //  GETTERS
+    // ============================================================
+
+    get likeClass() {
+        return `comment-action ${this.liked ? 'comment-action-active' : ''}`;
+    }
+    get likeCountLabel() {
+        return this.likeCount > 0 ? `${this.likeCount}` : '';
+    }
+    get showEditButton() {
+        return this.comment.canEdit === true;
     }
 
-    // ===== Getters =====
-
-    get likeClass()        { return `comment-action ${this.liked ? 'comment-action-active' : ''}`; }
-    get likeCountLabel()   { return this.likeCount > 0 ? `${this.likeCount}` : ''; }
-    get showEditButton()   { return this.comment.canEdit === true; }
     get renderedCommentHtml() {
         let html = mentionTokensToLinks(this._text || '');
 
-        // Render inline images
+        // Inline images
         const imgs = this.comment.inlineImages || [];
         for (const img of imgs) {
             const token = `\\[\\[IMG:${img.position}\\]\\]`;
-            const safeUrl = this._escapeHtml(img.url || '');
-            const safeAlt = this._escapeHtml(img.altText || '');
+            const safeUrl = escapeHtml(img.url || '');
+            const safeAlt = escapeHtml(img.altText || '');
             const imgTag = `<img src="${safeUrl}" alt="${safeAlt}" style="max-width:100%;border-radius:6px;margin:6px 0;display:block;" />`;
             html = html.replace(new RegExp(token, 'g'), imgTag);
         }
 
         html = html.replace(/\n/g, '<br/>');
         return html;
-    }
-
-    _escapeHtml(str) {
-        if (!str) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-    get hasAttachments() {
-        return this.comment.attachments && this.comment.attachments.length > 0;
     }
 }

@@ -5,7 +5,7 @@ import postFeed from '@salesforce/apex/ChatterConnectController.postFeed';
 import postFeedWithFiles from '@salesforce/apex/ChatterConnectController.postFeedWithFiles';
 import deleteFeedElement from '@salesforce/apex/ChatterConnectController.deleteFeedElement';
 import getFeedEditPermissions from '@salesforce/apex/ChatterConnectController.getFeedEditPermissions';
-import { reduceErrors } from 'c/emeraldChatterUtils';
+import { reduceErrors, relativeTime } from 'c/emeraldChatterUtils';
 
 const PAGE_SIZE = 25;
 
@@ -28,6 +28,10 @@ export default class EmeraldChatterFeed extends LightningElement {
     _lastRecordId;
     _loadToken = 0;
 
+    // ============================================================
+    //  LIFECYCLE
+    // ============================================================
+
     renderedCallback() {
         if (this._lastRecordId !== this.recordId) {
             this._lastRecordId = this.recordId;
@@ -44,6 +48,10 @@ export default class EmeraldChatterFeed extends LightningElement {
         this.hasMore = false;
         this.errorMessage = undefined;
     }
+
+    // ============================================================
+    //  LOAD
+    // ============================================================
 
     async loadFeed() {
         const token = ++this._loadToken;
@@ -111,16 +119,14 @@ export default class EmeraldChatterFeed extends LightningElement {
         this.loadFeed();
     }
 
+    // ============================================================
+    //  POST
+    // ============================================================
+
     async handlePost(event) {
-        const { text, contentDocumentId, additionalContentDocumentIds } = event.detail;
+        const { text, contentVersionIds } = event.detail;
 
-        const fileIds = [];
-        if (contentDocumentId) fileIds.push(contentDocumentId);
-        if (additionalContentDocumentIds && additionalContentDocumentIds.length) {
-            fileIds.push(...additionalContentDocumentIds);
-        }
-
-        const hasFiles = fileIds.length > 0;
+        const hasFiles = contentVersionIds && contentVersionIds.length > 0;
         if (!text && !hasFiles) return;
 
         this.isPosting = true;
@@ -132,7 +138,7 @@ export default class EmeraldChatterFeed extends LightningElement {
                 const result = await postFeedWithFiles({
                     recordId: this.recordId,
                     text: text || '',
-                    contentVersionIds: fileIds
+                    contentVersionIds
                 });
                 newEl = result.element;
                 attachmentError = result.attachmentError;
@@ -146,7 +152,7 @@ export default class EmeraldChatterFeed extends LightningElement {
 
             this.elements = [this.decorate(newEl), ...this.elements];
 
-            // Clear the composer after a successful post
+            // Clear the composer
             const composer = this.template.querySelector('c-emerald-chatter-composer');
             if (composer && typeof composer.reset === 'function') composer.reset();
 
@@ -162,6 +168,10 @@ export default class EmeraldChatterFeed extends LightningElement {
         }
     }
 
+    // ============================================================
+    //  DELETE
+    // ============================================================
+
     async handleDelete(event) {
         const { elementId } = event.detail;
         const snapshot = [...this.elements];
@@ -175,12 +185,13 @@ export default class EmeraldChatterFeed extends LightningElement {
         }
     }
 
+    // ============================================================
+    //  CHILD EVENTS
+    // ============================================================
+
     handleEdited(event) {
         const { element } = event.detail;
         if (!element) return;
-        // The child's state is authoritative — it just went through a server
-        // round-trip. Replace, don't merge. (SOQL-based attachment loading
-        // guarantees the response matches reality.)
         this.elements = this.elements.map(el =>
             el.id === element.id ? this.decorate(element) : el
         );
@@ -194,6 +205,10 @@ export default class EmeraldChatterFeed extends LightningElement {
                 : el
         );
     }
+
+    // ============================================================
+    //  FILTERS
+    // ============================================================
 
     get filterOptions() {
         const mk = (value, label) => ({
@@ -217,29 +232,26 @@ export default class EmeraldChatterFeed extends LightningElement {
         return this.elements;
     }
 
+    // ============================================================
+    //  HELPERS
+    // ============================================================
+
     decorate(el) {
         return {
             ...el,
             key: el.id,
-            displayTime: this.formatRelative(el.createdDate),
+            displayTime: relativeTime(el.createdDate),
             hasAttachments: (el.attachments || []).length > 0
         };
-    }
-
-    formatRelative(iso) {
-        if (!iso) return '';
-        const d = new Date(iso);
-        const diff = (Date.now() - d.getTime()) / 1000;
-        if (diff < 60) return 'just now';
-        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-        if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-        return d.toLocaleDateString();
     }
 
     showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
     }
+
+    // ============================================================
+    //  GETTERS
+    // ============================================================
 
     get hasElements() { return this.filteredElements.length > 0; }
     get showEmpty() { return !this.isLoading && !this.errorMessage && !this.hasElements; }

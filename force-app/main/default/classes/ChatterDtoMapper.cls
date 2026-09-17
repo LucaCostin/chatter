@@ -271,7 +271,6 @@ public with sharing class ChatterDtoMapper {
             a.fileSize = Integer.valueOf(cv.ContentSize);
         }
         a.url = '/sfc/servlet.shepherd/document/download/' + cv.ContentDocumentId;
-        a.canDelete = true;
         return a;
     }
 

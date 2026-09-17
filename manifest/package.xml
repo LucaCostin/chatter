@@ -22,6 +22,7 @@
         <members>ChatterPostResultDto</members>
         <members>ChatterInlineImageDto</members>
         <members>ChatterSoqlSanitizer</members>
+        <members>ChatterFeedBodyHelper</members>
         <members>ConnectApiHelper</members>
         <members>ConnectApiHelperTest</members>
         <name>ApexClass</name>
@@ -33,7 +34,6 @@
         <members>emeraldChatterComposer</members>
         <members>emeraldChatterFeed</members>
         <members>emeraldChatterFeedItem</members>
-        <members>emeraldChatterMentionPicker</members>
         <members>emeraldChatterUtils</members>
         <members>emeraldChatterRichComposer</members>
         <name>LightningComponentBundle</name>

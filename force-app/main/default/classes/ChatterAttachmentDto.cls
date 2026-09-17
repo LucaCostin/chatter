@@ -6,5 +6,4 @@ public with sharing class ChatterAttachmentDto {
     @AuraEnabled public String  mimeType;
     @AuraEnabled public Integer fileSize;
     @AuraEnabled public String  fileExtension;
-    @AuraEnabled public Boolean canDelete;          // NEW
 }

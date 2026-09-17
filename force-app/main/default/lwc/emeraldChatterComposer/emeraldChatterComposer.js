@@ -2,7 +2,7 @@ import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getCurrentUser from '@salesforce/apex/ChatterConnectController.getCurrentUser';
 import uploadFile from '@salesforce/apex/ChatterConnectController.uploadFile';
-import { reduceErrors, normalizeRichTextHtml } from 'c/emeraldChatterUtils';
+import { reduceErrors, normalizeRichTextHtml, stripHtml } from 'c/emeraldChatterUtils';
 
 const MAX_LENGTH = 10000;
 
@@ -11,18 +11,17 @@ export default class EmeraldChatterComposer extends LightningElement {
     // ===== Public API =====
     @api placeholder = 'Share an update...';
     @api submitLabel = 'Share';
-    @api showAvatar = false;
+    @api hideAvatar = false;
     @api showCancel = false;
+    @api hideAttach = false;
     @api disabled = false;
     @api compactMode = false;
-    @api hideAttach = false;
 
     @api
     get initialValue() { return this._initialValue; }
     set initialValue(v) {
         this._initialValue = v || '';
         this.text = this._initialValue;
-        // Seed the RTE after render
         // eslint-disable-next-line @lwc/lwc/no-async-operation
         setTimeout(() => {
             const rc = this.template.querySelector('c-emerald-chatter-rich-composer');
@@ -34,10 +33,9 @@ export default class EmeraldChatterComposer extends LightningElement {
     @track currentUser;
     @track text = '';
     @track pendingFiles = [];
-    @track isPosting = false;
+    @track isSubmitting = false;
 
     _initialValue = '';
-    _lastText = '';
 
     connectedCallback() {
         this.loadUser();
@@ -48,25 +46,17 @@ export default class EmeraldChatterComposer extends LightningElement {
         catch (e) { /* non-fatal */ }
     }
 
-    // ===== Text changes =====
+    // ============================================================
+    //  TEXT
+    // ============================================================
 
     handleTextChange(event) {
         this.text = event.detail.value || '';
-        this._emitChange();
     }
 
-    _emitChange() {
-        this.dispatchEvent(new CustomEvent('change', {
-            detail: {
-                text: this.text,
-                contentVersionIds: this.pendingFiles
-                    .filter(f => !f.uploading)
-                    .map(f => f.contentDocumentId)
-            }
-        }));
-    }
-
-    // ===== File handling =====
+    // ============================================================
+    //  FILES
+    // ============================================================
 
     openFilePicker() {
         const input = this.template.querySelector('.hidden-file-input');
@@ -83,8 +73,7 @@ export default class EmeraldChatterComposer extends LightningElement {
             this.pendingFiles = [
                 ...this.pendingFiles,
                 {
-                    id: tempId,
-                    key: tempId,
+                    id: tempId, key: tempId,
                     name: file.name,
                     sizeLabel: this.formatSize(file.size),
                     uploading: true,
@@ -100,7 +89,6 @@ export default class EmeraldChatterComposer extends LightningElement {
                             contentDocumentId: contentVersionId, uploading: false }
                         : f
                 );
-                this._emitChange();
             } catch (err) {
                 this.pendingFiles = this.pendingFiles.filter(f => f.id !== tempId);
                 this.showToast('Upload failed', reduceErrors(err), 'error');
@@ -133,7 +121,6 @@ export default class EmeraldChatterComposer extends LightningElement {
     handleRemoveFile(event) {
         const id = event.currentTarget.dataset.id;
         this.pendingFiles = this.pendingFiles.filter(f => f.id !== id);
-        this._emitChange();
     }
 
     formatSize(bytes) {
@@ -143,53 +130,34 @@ export default class EmeraldChatterComposer extends LightningElement {
         return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     }
 
-    // ===== Submit / Cancel =====
+    // ============================================================
+    //  SUBMIT / CANCEL
+    // ============================================================
 
-    async handleSubmit() {
-        const plain = this.stripHtml(this.text || '').trim();
-        const hasFiles = this.pendingFiles.some(f => !f.uploading);
+    handleSubmit() {
+        const plain = stripHtml(this.text || '').trim();
+        const contentVersionIds = this.pendingFiles
+            .filter(f => !f.uploading)
+            .map(f => f.contentDocumentId);
+        const hasFiles = contentVersionIds.length > 0;
 
         if (!plain && !hasFiles) return;
         if (plain.length > MAX_LENGTH) {
             this.showToast('Too long', `Keep it under ${MAX_LENGTH} characters.`, 'warning');
             return;
         }
-        if (this.disabled || this.isPosting) return;
+        if (this.disabled || this.isSubmitting) return;
 
-        this.isPosting = true;
-        const contentVersionIds = this.pendingFiles
-            .filter(f => !f.uploading)
-            .map(f => f.contentDocumentId);
+        const htmlForServer = normalizeRichTextHtml(this.text);
 
-        try {
-            const htmlForServer = normalizeRichTextHtml(this.text);
-
-            // Primary event — parents bind to this
-            this.dispatchEvent(new CustomEvent('submit', {
-                detail: {
-                    text: htmlForServer,
-                    contentVersionIds,
-                    // Legacy aliases for backward compat with onpost bindings
-                    contentDocumentId: contentVersionIds[0] || null,
-                    additionalContentDocumentIds: contentVersionIds.slice(1)
-                }
-            }));
-
-            // Legacy event — same payload, fires alongside 'submit'
-            this.dispatchEvent(new CustomEvent('post', {
-                detail: {
-                    text: htmlForServer,
-                    contentDocumentId: contentVersionIds[0] || null,
-                    additionalContentDocumentIds: contentVersionIds.slice(1)
-                }
-            }));
-        } finally {
-            this.isPosting = false;
-        }
+        this.dispatchEvent(new CustomEvent('submit', {
+            detail: { text: htmlForServer, contentVersionIds }
+        }));
+        // Parent clears via .reset() on success
     }
 
     handleCancel() {
-        this.dispatchEvent(new CustomEvent('cancel', {}));
+        this.dispatchEvent(new CustomEvent('cancel'));
     }
 
     handleKeydown(event) {
@@ -199,7 +167,9 @@ export default class EmeraldChatterComposer extends LightningElement {
         }
     }
 
-    // ===== Public methods (called by parents) =====
+    // ============================================================
+    //  PUBLIC METHODS (called by parents)
+    // ============================================================
 
     @api
     reset() {
@@ -208,7 +178,6 @@ export default class EmeraldChatterComposer extends LightningElement {
         this.pendingFiles = [];
         const rc = this.template.querySelector('c-emerald-chatter-rich-composer');
         if (rc && typeof rc.clear === 'function') rc.clear();
-        this._emitChange();
     }
 
     @api
@@ -222,39 +191,36 @@ export default class EmeraldChatterComposer extends LightningElement {
         this.text = value || '';
         const rc = this.template.querySelector('c-emerald-chatter-rich-composer');
         if (rc && typeof rc.setValue === 'function') rc.setValue(this.text);
-        this._emitChange();
     }
 
-    // ===== Utilities =====
-
-    stripHtml(html) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        return tmp.textContent || tmp.innerText || '';
-    }
+    // ============================================================
+    //  UTILITIES
+    // ============================================================
 
     showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
     }
 
-    // ===== Getters =====
+    // ============================================================
+    //  GETTERS
+    // ============================================================
 
     get avatarUrl()       { return this.currentUser?.SmallPhotoUrl || null; }
     get userName()        { return this.currentUser?.Name || 'You'; }
-    get charCount()       { return this.stripHtml(this.text || '').length; }
+    get charCount()       { return stripHtml(this.text || '').length; }
     get charLimitLabel()  { return this.charCount > MAX_LENGTH - 500 ? `${MAX_LENGTH - this.charCount} left` : ''; }
     get showCharWarning() { return this.charCount > MAX_LENGTH - 500; }
     get overLimit()       { return this.charCount > MAX_LENGTH; }
     get hasFiles()        { return this.pendingFiles.length > 0; }
 
     get canSubmit() {
-        const hasText = this.stripHtml(this.text || '').trim().length > 0;
+        const hasText = stripHtml(this.text || '').trim().length > 0;
         const hasReadyFile = this.pendingFiles.some(f => !f.uploading);
         const stillUploading = this.pendingFiles.some(f => f.uploading);
         return (hasText || hasReadyFile)
             && !stillUploading
             && !this.disabled
-            && !this.isPosting
+            && !this.isSubmitting
             && !this.overLimit;
     }
     get submitDisabled() { return !this.canSubmit; }

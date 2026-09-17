@@ -69,7 +69,7 @@
                     <template if:true={showCancel}>
                         <button class="cancel-btn"
                                 onclick={handleCancel}
-                                disabled={isPosting}>
+                                disabled={isSubmitting}>
                             Cancel
                         </button>
                     </template>
@@ -77,10 +77,10 @@
                     <button class="submit-btn"
                             onclick={handleSubmit}
                             disabled={submitDisabled}>
-                        <template if:true={isPosting}>
+                        <template if:true={isSubmitting}>
                             <lightning-spinner alternative-text="Submitting" size="small"></lightning-spinner>
                         </template>
-                        <template if:false={isPosting}>
+                        <template if:false={isSubmitting}>
                             <span>{submitLabel}</span>
                         </template>
                     </button>

@@ -28,24 +28,22 @@ public with sharing class ChatterFileService {
         }
 
         ChatterPostResultDto result = new ChatterPostResultDto();
-        List<String> capped = capList(contentVersionIds, MAX_FILES_PER_POST);
+        List<String> capped = ChatterFeedBodyHelper.capList(contentVersionIds, MAX_FILES_PER_POST);
 
         try {
-            // 1. Post the feed element with rich body
             ConnectApi.FeedItemInput input = new ConnectApi.FeedItemInput();
             input.subjectId       = recordId;
-            input.body            = buildRichBody(text);
+            input.body            = ChatterFeedBodyHelper.buildRichBody(text);
             input.feedElementType = ConnectApi.FeedElementType.FeedItem;
 
             ConnectApi.FeedElement el = ConnectApi.ChatterFeeds.postFeedElement(
                 ChatterCommunityContext.getCommunityId(), input
             );
 
-            // 2. Attach files one at a time
             if (!capped.isEmpty()) {
                 List<String> errors = new List<String>();
                 for (String cvId : capped) {
-                    String err = tryLinkFile(el.id, cvId);
+                    String err = ChatterFeedBodyHelper.tryLinkFile(el.id, cvId);
                     if (err != null) errors.add(err);
                 }
                 if (!errors.isEmpty()) {
@@ -53,52 +51,7 @@ public with sharing class ChatterFileService {
                 }
             }
 
-            // 3. Map — reads attachments via SOQL, includes all successfully linked
             result.element = ChatterDtoMapper.toFeedElement(el);
-            return result;
-
-        } catch (ChatterException ce) {
-            throw ce;
-        } catch (Exception e) {
-            throw ChatterException.fromConnect(e);
-        }
-    }
-
-    public static ChatterPostResultDto postCommentWithFiles(
-        String feedElementId,
-        String text,
-        List<String> contentVersionIds
-    ) {
-        if (String.isBlank(feedElementId)) {
-            throw ChatterException.validation('feedElementId is required');
-        }
-
-        ChatterPostResultDto result = new ChatterPostResultDto();
-        List<String> capped = capList(contentVersionIds, MAX_FILES_PER_POST);
-
-        try {
-            ConnectApi.CommentInput input = new ConnectApi.CommentInput();
-            input.body = buildRichBody(text);
-
-            ConnectApi.Comment c = ConnectApi.ChatterFeeds.postCommentToFeedElement(
-                ChatterCommunityContext.getCommunityId(),
-                feedElementId,
-                input,
-                null
-            );
-
-            if (!capped.isEmpty()) {
-                List<String> errors = new List<String>();
-                for (String cvId : capped) {
-                    String err = tryLinkFile(c.id, cvId);
-                    if (err != null) errors.add(err);
-                }
-                if (!errors.isEmpty()) {
-                    result.attachmentError = String.join(errors, '; ');
-                }
-            }
-
-            result.comment = ChatterDtoMapper.toComment(c);
             return result;
 
         } catch (ChatterException ce) {
@@ -174,88 +127,9 @@ public with sharing class ChatterFileService {
         delete rows;
     }
 
-    @AuraEnabled(cacheable=true)
-    public static ChatterAttachmentDto getAttachmentInfo(String contentDocumentId) {
-        if (String.isBlank(contentDocumentId)) {
-            throw ChatterException.validation('contentDocumentId is required');
-        }
-        List<ContentVersion> cvs = [
-            SELECT Id, ContentDocumentId, Title, FileExtension, FileType, ContentSize
-            FROM ContentVersion
-            WHERE ContentDocumentId = :contentDocumentId AND IsLatest = true
-            LIMIT 1
-        ];
-        if (cvs.isEmpty()) throw ChatterException.notFound('ContentDocument not found: ' + contentDocumentId);
-        ContentVersion cv = cvs[0];
-        ChatterAttachmentDto d = new ChatterAttachmentDto();
-        d.id               = cv.ContentDocumentId;
-        d.contentVersionId = cv.Id;
-        d.title            = cv.Title;
-        d.fileExtension    = cv.FileExtension;
-        d.fileSize         = cv.ContentSize == null ? null : Integer.valueOf(cv.ContentSize);
-        d.mimeType         = cv.FileType;
-        d.url              = '/sfsites/c/sfc/servlet.shepherd/document/download/' + cv.ContentDocumentId;
-        return d;
-    }
-
     // ============================================================
     //  PRIVATE
     // ============================================================
-
-    private static ConnectApi.MessageBodyInput buildRichBody(String html) {
-        ConnectApi.MessageBodyInput body = new ConnectApi.MessageBodyInput();
-        if (String.isBlank(html)) {
-            ConnectApi.TextSegmentInput seg = new ConnectApi.TextSegmentInput();
-            seg.text = '';
-            body.messageSegments = new List<ConnectApi.MessageSegmentInput>{ seg };
-        } else {
-            body.messageSegments = ConnectApiHelper.getMessageSegmentInputs(html);
-        }
-        return body;
-    }
-
-    private static List<String> capList(List<String> source, Integer max) {
-        if (source == null) return new List<String>();
-        if (source.size() <= max) return source;
-        List<String> out = new List<String>();
-        for (Integer i = 0; i < max; i++) out.add(source[i]);
-        return out;
-    }
-
-    private static String tryLinkFile(String feedElementId, String contentVersionId) {
-        // Attempt 1
-        try {
-            linkFileToFeedElement(feedElementId, contentVersionId);
-            return null;
-        } catch (Exception firstErr) {
-            System.debug(LoggingLevel.WARN,
-                'File link attempt 1 failed for ' + feedElementId + ': ' + firstErr.getMessage());
-        }
-        // Attempt 2
-        try {
-            linkFileToFeedElement(feedElementId, contentVersionId);
-            return null;
-        } catch (Exception secondErr) {
-            System.debug(LoggingLevel.ERROR,
-                'File link attempt 2 failed for ' + feedElementId + ': ' + secondErr.getMessage());
-            return secondErr.getMessage();
-        }
-    }
-
-    private static void linkFileToFeedElement(String feedElementId, String contentVersionId) {
-        List<FeedAttachment> existing = [
-            SELECT Id FROM FeedAttachment
-            WHERE FeedEntityId = :feedElementId AND RecordId = :contentVersionId
-            LIMIT 1
-        ];
-        if (!existing.isEmpty()) return;
-
-        FeedAttachment fa = new FeedAttachment();
-        fa.FeedEntityId = feedElementId;
-        fa.RecordId     = contentVersionId;
-        fa.Type         = 'Content';
-        insert fa;
-    }
 
     private static String sanitizeFilename(String name) {
         if (String.isBlank(name)) return null;

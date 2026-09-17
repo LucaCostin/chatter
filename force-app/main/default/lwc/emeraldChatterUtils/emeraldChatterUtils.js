@@ -1,3 +1,7 @@
+// ============================================================
+//  ERROR HANDLING
+// ============================================================
+
 export function reduceErrors(errors) {
     if (!errors) return 'Unknown error';
     if (!Array.isArray(errors)) errors = [errors];
@@ -16,6 +20,14 @@ export function reduceErrors(errors) {
         .join(', ');
 }
 
+// ============================================================
+//  HTML / TEXT UTILITIES
+// ============================================================
+
+/**
+ * Escapes HTML special characters. Used when injecting server data
+ * into HTML strings we construct.
+ */
 export function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -25,6 +37,21 @@ export function escapeHtml(str) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
+
+/**
+ * Strips HTML tags to get plain text. Used by parents to check
+ * whether a composer value is empty.
+ */
+export function stripHtml(html) {
+    if (!html) return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+}
+
+// ============================================================
+//  FORMATTING
+// ============================================================
 
 export function formatBytes(bytes) {
     if (!bytes && bytes !== 0) return '';
@@ -48,46 +75,49 @@ export function relativeTime(iso) {
 //  MENTION TOKEN HELPERS
 // ============================================================
 //
-// Three representations of a mention fly through the system:
+// Three representations of a mention:
 //
-//   WIRE    "{005WU000019vmztYAA|razvan.luca}"   ← what the server sends
-//   PILL    '<span class="mention-pill" data-id="005WU...">@razvan.luca</span>'
-//   TOKEN   "{005WU000019vmztYAA}"                ← what ConnectApiHelper wants
+//   WIRE    "{005WU000019vmztYAA|razvan.luca}"   ← server ↔ client
+//   PILL    '<a href="/005WU..." ...>@razvan.luca</a>'   ← editor
+//   TOKEN   "{005WU000019vmztYAA}"                ← ConnectApiHelper input
 //
 // Conversions:
-//   wireToPill      — server → editor (edit-load, display)
-//   pillToToken     — editor → server (on save)
-//   wireToLinks     — server → display-only anchors (feed render)
+//   wireTokensToComposerTokens — server → editor (edit-load)
+//   pillTokensToWire           — editor → server (on save)
+//   mentionTokensToLinks       — server → feed display anchors
 
 const MENTION_ID = '[a-zA-Z0-9]{15}|[a-zA-Z0-9]{18}';
 
+/**
+ * Wire format → anchor pill for display in the composer.
+ * {005...|razvan.luca} → <a href="/005..." style="...">@razvan.luca</a>
+ */
 export function wireTokensToComposerTokens(html) {
     if (!html) return '';
     const re = new RegExp(`\\{(${MENTION_ID})\\|([^}]+)\\}`, 'g');
     return html.replace(re, (match, id, name) => {
         const safeName = escapeHtml(name);
         const style = 'color:#047857;font-weight:600;text-decoration:none;background:#ecfdf5;padding:1px 6px;border-radius:6px;border:1px solid #a7f3d0;';
-        return `<a href="/${id}" class="chatter-mention" style="${style}">@${safeName}</a>&nbsp;`;
+        return `<a href="/${id}" style="${style}">@${safeName}</a>&nbsp;`;
     });
 }
 
 /**
  * Editor HTML → server wire format.
- * Handles two shapes:
- *   1. <span class="mention-pill" data-id="005...">...</span> → {005...}
- *   2. @{005...} → {005...}   (fallback if the pill got mangled)
+ * Anchor pill → {id}
+ * Bare @{id} → {id} (fallback if the anchor got flattened)
  */
 export function pillTokensToWire(html) {
     if (!html) return '';
-
     let out = html;
 
     // Anchor form: <a href="/005..." ...>@Name</a> → {005...}
     out = out.replace(
-        new RegExp(`<a\\s+[^>]{0,500}href=["']\\/(${MENTION_ID})["'][^>]{0,500}>.*?<\\/a>`, 'gi'),
+        new RegExp(`<a\\s+[^>]*href=["']\\/(${MENTION_ID})["'][^>]*>.*?<\\/a>`, 'gi'),
         (match, id) => `{${id}}`
     );
-    // Fallback: @{005...} (in case the anchor got flattened)
+
+    // Fallback: @{005...}
     out = out.replace(new RegExp(`@\\{(${MENTION_ID})\\}`, 'g'), (match, id) => `{${id}}`);
 
     return out;
@@ -108,19 +138,15 @@ export function mentionTokensToLinks(html) {
 
 /**
  * Full normalize pipeline for composer output before sending to Apex.
- *  - Semantic → shorthand tags
- *  - Strip attributes on helper-recognized tags
- *  - Convert pills / @{id} → {id}
- *  - Clean up empty paragraphs
  */
 export function normalizeRichTextHtml(html) {
     if (!html) return '';
     let out = html;
 
-    // --- Step 1: convert mentions to wire tokens ---
+    // Step 1: convert mentions to wire tokens
     out = pillTokensToWire(out);
 
-    // --- Step 2: semantic → shorthand ---
+    // Step 2: semantic → shorthand
     out = out.replace(/<strong(\s[^>]*)?>/gi, '<b>');
     out = out.replace(/<\/strong>/gi, '</b>');
     out = out.replace(/<em(\s[^>]*)?>/gi, '<i>');
@@ -130,7 +156,7 @@ export function normalizeRichTextHtml(html) {
     out = out.replace(/<del(\s[^>]*)?>/gi, '<s>');
     out = out.replace(/<\/del>/gi, '</s>');
 
-    // --- Step 3: strip attributes on helper-recognized tags ---
+    // Step 3: strip attributes on helper-recognized tags
     out = out.replace(/<p(\s[^>]*)?>/gi, '<p>');
     out = out.replace(/<\/p(\s[^>]*)?>/gi, '</p>');
     out = out.replace(/<b(\s[^>]*)?>/gi, '<b>');
@@ -150,21 +176,21 @@ export function normalizeRichTextHtml(html) {
     out = out.replace(/<code(\s[^>]*)?>/gi, '<code>');
     out = out.replace(/<\/code(\s[^>]*)?>/gi, '</code>');
 
-    // --- Step 4: strip wrapper tags but keep content ---
+    // Step 4: strip wrapper tags but keep content
     out = out.replace(/<\/?(span|div|font|pre|section|article)(\s[^>]*)?>/gi, '');
 
-    // --- Step 5: <br> → paragraph break ---
+    // Step 5: <br> → paragraph break
     out = out.replace(/<br\s*\/?>/gi, '</p><p>');
 
-    // --- Step 6: headings → p ---
+    // Step 6: headings → p
     out = out.replace(/<h[1-3](\s[^>]*)?>/gi, '<p>');
     out = out.replace(/<\/h[1-3]>/gi, '</p>');
 
-    // --- Step 7: strip empty paragraphs ---
+    // Step 7: strip empty paragraphs
     out = out.replace(/<p>\s*<\/p>/gi, '');
     out = out.replace(/<p>&nbsp;<\/p>/gi, '');
 
-    // --- Step 8: trim edges ---
+    // Step 8: trim edges
     out = out.replace(/^<p><\/p>|<p><\/p>$/g, '');
 
     return out;

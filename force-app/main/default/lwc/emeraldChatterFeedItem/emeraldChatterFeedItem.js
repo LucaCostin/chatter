@@ -1,33 +1,40 @@
 import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getComments from '@salesforce/apex/ChatterConnectController.getComments';
-import postCommentWithFiles from '@salesforce/apex/ChatterConnectController.postCommentWithFiles';
+import postComment from '@salesforce/apex/ChatterConnectController.postComment';
 import likeFeedElement from '@salesforce/apex/ChatterConnectController.likeFeedElement';
 import unlikeFeedElement from '@salesforce/apex/ChatterConnectController.unlikeFeedElement';
 import updateFeedWithFiles from '@salesforce/apex/ChatterConnectController.updateFeedWithFiles';
 import getCommentEnrichment from '@salesforce/apex/ChatterConnectController.getCommentEnrichment';
-import { reduceErrors, mentionTokensToLinks, escapeHtml, wireTokensToComposerTokens } from 'c/emeraldChatterUtils';
+import {
+    reduceErrors,
+    stripHtml,
+    relativeTime,
+    escapeHtml,
+    mentionTokensToLinks,
+    wireTokensToComposerTokens
+} from 'c/emeraldChatterUtils';
 
 const COMMENT_PAGE_SIZE = 10;
 
 export default class EmeraldChatterFeedItem extends LightningElement {
 
+    // ===== Comment thread state =====
     @track commentsOpen = false;
     @track comments = [];
     @track commentsLoading = false;
     @track commentsPageToken = null;
     @track commentsHasMore = false;
 
+    // ===== Post edit state =====
     @track isEditing = false;
     @track editValue = '';
     @track editSaving = false;
 
-    @track commentPosting = false;
-    @track commentValue = '';
-    @track commentFiles = [];
-
+    // ===== Post delete state =====
     @track isConfirmingDelete = false;
 
+    // ===== Internal working copy of the element prop =====
     _element;
     _el;
 
@@ -36,13 +43,15 @@ export default class EmeraldChatterFeedItem extends LightningElement {
         this._element = value;
         this._el = value ? {
             ...value,
-            displayTime: this.formatRelative(value.createdDate)
+            displayTime: relativeTime(value.createdDate)
         } : null;
     }
     get element() { return this._element; }
     get el() { return this._el || {}; }
 
-    // ===== Like =====
+    // ============================================================
+    //  LIKE
+    // ============================================================
 
     async handleLikeClick() {
         const wasLiked = this._el.currentUserLike;
@@ -77,11 +86,13 @@ export default class EmeraldChatterFeedItem extends LightningElement {
         }
     }
 
-    // ===== Post edit =====
+    // ============================================================
+    //  POST EDIT
+    // ============================================================
 
     handleEditClick() {
         this.isEditing = true;
-        // Convert wire format {005|name} → <a href="/005">@name</a> for the RTE
+        // Convert server wire format {005|Name} → anchor pill for the RTE
         this.editValue = wireTokensToComposerTokens(this._el.text || '');
         // eslint-disable-next-line @lwc/lwc/no-async-operation
         setTimeout(() => {
@@ -104,7 +115,7 @@ export default class EmeraldChatterFeedItem extends LightningElement {
 
     async handleEditSubmit(event) {
         const { text, contentVersionIds } = event.detail;
-        const plain = this._stripHtml(text || '').trim();
+        const plain = stripHtml(text || '').trim();
         if (!plain && (!contentVersionIds || !contentVersionIds.length)) return;
 
         this.editSaving = true;
@@ -118,7 +129,7 @@ export default class EmeraldChatterFeedItem extends LightningElement {
 
             this._el = {
                 ...updated,
-                displayTime: this.formatRelative(updated.createdDate)
+                displayTime: relativeTime(updated.createdDate)
             };
 
             this.isEditing = false;
@@ -134,7 +145,9 @@ export default class EmeraldChatterFeedItem extends LightningElement {
         }
     }
 
-    // ===== Comments =====
+    // ============================================================
+    //  COMMENTS
+    // ============================================================
 
     async handleCommentToggle() {
         this.commentsOpen = !this.commentsOpen;
@@ -144,9 +157,10 @@ export default class EmeraldChatterFeedItem extends LightningElement {
         }
 
         if (this.commentsOpen) {
+            // Autofocus the comment composer once it renders
             // eslint-disable-next-line @lwc/lwc/no-async-operation
             setTimeout(() => {
-                const c = this.template.querySelector('c-emerald-chatter-composer.comment-composer');
+                const c = this.template.querySelector('c-emerald-chatter-composer.comment-composer-rt');
                 if (c && typeof c.focus === 'function') c.focus();
             }, 0);
         }
@@ -214,26 +228,17 @@ export default class EmeraldChatterFeedItem extends LightningElement {
         }
     }
 
-    handleCommentChange(event) {
-        this.commentValue = event.detail.text || '';
-        this.commentFiles  = event.detail.contentVersionIds || [];
-    }
-
     async handleCommentSubmit(event) {
-        const { text, contentVersionIds } = event.detail;
-        const plain = this._stripHtml(text || '').trim();
+        const { text } = event.detail;
+        const plain = stripHtml(text || '').trim();
+        if (!plain) return;
 
-        if (!plain && (!contentVersionIds || !contentVersionIds.length)) return;
-
-        this.commentPosting = true;
         try {
-            const result = await postCommentWithFiles({
+            const created = await postComment({
                 feedElementId: this._el.id,
-                text: text || '',
-                contentVersionIds: contentVersionIds || []
+                text: text || ''
             });
 
-            const created = result.comment;
             if (created) {
                 this.comments = [this.decorateComment(created), ...this.comments];
             }
@@ -241,21 +246,13 @@ export default class EmeraldChatterFeedItem extends LightningElement {
             // Reset the composer
             const c = this.template.querySelector('c-emerald-chatter-composer.comment-composer-rt');
             if (c && typeof c.reset === 'function') c.reset();
-            this.commentValue = '';
-            this.commentFiles = [];
 
             this._el = { ...this._el, commentCount: (this._el.commentCount || 0) + 1 };
             this.dispatchEvent(new CustomEvent('commentcount', {
                 detail: { elementId: this._el.id, delta: 1 }
             }));
-
-            if (result.attachmentError) {
-                this.showToast('Comment saved with warnings', result.attachmentError, 'warning');
-            }
         } catch (err) {
             this.showToast('Error', reduceErrors(err), 'error');
-        } finally {
-            this.commentPosting = false;
         }
     }
 
@@ -276,10 +273,12 @@ export default class EmeraldChatterFeedItem extends LightningElement {
         );
     }
 
-    // ===== Post delete =====
+    // ============================================================
+    //  POST DELETE
+    // ============================================================
 
-    handleDeleteClick()    { this.isConfirmingDelete = true; }
-    handleDeleteCancel()   { this.isConfirmingDelete = false; }
+    handleDeleteClick()  { this.isConfirmingDelete = true; }
+    handleDeleteCancel() { this.isConfirmingDelete = false; }
     handleDeleteConfirm() {
         this.isConfirmingDelete = false;
         this.dispatchEvent(new CustomEvent('delete', {
@@ -287,7 +286,9 @@ export default class EmeraldChatterFeedItem extends LightningElement {
         }));
     }
 
-    // ===== Attachment deletion =====
+    // ============================================================
+    //  ATTACHMENT DELETION (post-level)
+    // ============================================================
 
     handleAttachmentDeleted(event) {
         const deletedId = event.detail.attachmentId;
@@ -306,36 +307,25 @@ export default class EmeraldChatterFeedItem extends LightningElement {
         this.showToast('Error', event.detail.message, 'error');
     }
 
+    // ============================================================
+    //  HELPERS
+    // ============================================================
+
     decorateComment(c) {
         return {
             ...c,
             key: c.id,
-            displayTime: this.formatRelative(c.createdDate)
+            displayTime: relativeTime(c.createdDate)
         };
-    }
-
-    formatRelative(iso) {
-        if (!iso) return '';
-        const d = new Date(iso);
-        const diff = (Date.now() - d.getTime()) / 1000;
-        if (diff < 60) return 'just now';
-        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-        if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-        return d.toLocaleDateString();
-    }
-
-    _stripHtml(html) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        return tmp.textContent || tmp.innerText || '';
     }
 
     showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
     }
 
-    // ===== Getters =====
+    // ============================================================
+    //  GETTERS
+    // ============================================================
 
     get elementClass() {
         return `feed-item ${this.el.currentUserLike ? 'feed-item-liked' : ''}`;
@@ -364,6 +354,8 @@ export default class EmeraldChatterFeedItem extends LightningElement {
 
     get renderedTextHtml() {
         let html = mentionTokensToLinks(this.el.text || '');
+
+        // Inline images
         const imgs = this.el.inlineImages || [];
         for (const img of imgs) {
             const token = `\\[\\[IMG:${img.position}\\]\\]`;
@@ -372,6 +364,7 @@ export default class EmeraldChatterFeedItem extends LightningElement {
             const imgTag = `<img src="${safeUrl}" alt="${safeAlt}" style="max-width:100%;border-radius:8px;margin:8px 0;display:block;" />`;
             html = html.replace(new RegExp(token, 'g'), imgTag);
         }
+
         html = html.replace(/\n/g, '<br/>');
         return html;
     }
