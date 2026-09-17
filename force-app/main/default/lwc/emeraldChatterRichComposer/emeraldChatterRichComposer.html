@@ -1,0 +1,56 @@
+<template>
+    <div class={composerClass} onkeydown={handleKeydown}>
+        <div class="rte-wrap">
+            <lightning-input-rich-text
+                value={value}
+                placeholder={placeholder}
+                formats={formats}
+                disabled={disabled}
+                onchange={handleRteChange}
+                variant="label-hidden">
+            </lightning-input-rich-text>
+
+            <template if:true={mentionOpen}>
+                <div class="mention-popover">
+                    <template if:true={mentionLoading}>
+                        <div class="mention-loading">Searching…</div>
+                    </template>
+                    <template if:false={mentionLoading}>
+                        <template if:true={mentionResults}>
+                            <ul class="mention-list">
+                                <template for:each={mentionResults} for:item="m">
+                                    <li key={m.key}>
+                                        <button class="mention-item"
+                                                type="button"
+                                                data-id={m.id}
+                                                data-name={m.name}
+                                                onclick={handleMentionSelect}>
+                                            <template if:true={m.photoUrl}>
+                                                <img class="mention-avatar" src={m.photoUrl} alt={m.name} />
+                                            </template>
+                                            <template if:false={m.photoUrl}>
+                                                <span class="mention-avatar-fallback">
+                                                    <lightning-icon icon-name="utility:user" size="xx-small"></lightning-icon>
+                                                </span>
+                                            </template>
+                                            <span class="mention-info">
+                                                <span class="mention-name">{m.name}</span>
+                                                <template if:true={m.subtitle}>
+                                                    <span class="mention-sub">{m.subtitle}</span>
+                                                </template>
+                                            </span>
+                                            <span class="mention-type">{m.type}</span>
+                                        </button>
+                                    </li>
+                                </template>
+                            </ul>
+                        </template>
+                        <template if:false={mentionResults}>
+                            <div class="mention-empty">No matches</div>
+                        </template>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </div>
+</template>

@@ -1,0 +1,36 @@
+<template>
+    <div class="attachment-wrap">
+        <template if:false={isConfirmingDelete}>
+            <a class="attachment" href={attachment.url} target="_blank" rel="noopener" title={attachment.title}>
+                <div class="attachment-icon">
+                    <lightning-icon icon-name={iconName} size="small"></lightning-icon>
+                </div>
+                <div class="attachment-info">
+                    <span class="attachment-title">{attachment.title}</span>
+                    <span class="attachment-size">{sizeLabel}</span>
+                </div>
+                <lightning-icon icon-name="utility:download" size="xx-small" class="attachment-download"></lightning-icon>
+            </a>
+            <template if:true={showDeleteButton}>
+                <button class="attachment-remove" onclick={handleDeleteClick} title="Remove file">
+                    <lightning-icon icon-name="utility:delete" size="xx-small"></lightning-icon>
+                </button>
+            </template>
+        </template>
+
+        <template if:true={isConfirmingDelete}>
+            <div class="attachment-confirm">
+                <span class="attachment-confirm-name">{attachment.title}</span>
+                <button class="attachment-confirm-no"
+                        onclick={handleDeleteCancel}
+                        disabled={isDeleting}>Cancel</button>
+                <button class="attachment-confirm-yes"
+                        onclick={handleDeleteConfirm}
+                        disabled={isDeleting}>
+                    <template if:true={isDeleting}>Removing…</template>
+                    <template if:false={isDeleting}>Remove</template>
+                </button>
+            </div>
+        </template>
+    </div>
+</template>

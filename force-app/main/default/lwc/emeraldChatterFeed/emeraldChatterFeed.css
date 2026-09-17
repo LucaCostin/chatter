@@ -1,0 +1,96 @@
+:host { display: block; height: 100%; }
+
+.feed {
+    display: flex; flex-direction: column; height: 100%;
+    min-height: 0; gap: 12px;
+}
+
+.feed-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
+    border: 1px solid #d1fae5; border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.06);
+}
+.feed-header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.feed-header-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; box-shadow: 0 4px 10px rgba(5, 150, 105, 0.22);
+}
+.feed-header-text { min-width: 0; }
+.feed-header-title {
+    margin: 0; font-size: 15px; font-weight: 700; color: #064e3b;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 380px;
+}
+.feed-header-sub {
+    font-size: 11.5px; color: #64748b;
+    letter-spacing: 0.02em; text-transform: uppercase;
+}
+.ghost-btn {
+    background: #ffffff; border: 1px solid #d1fae5; border-radius: 8px;
+    width: 32px; height: 32px; display: flex; align-items: center;
+    justify-content: center; cursor: pointer;
+    transition: all 0.15s ease;
+}
+.ghost-btn:hover { background: #ecfdf5; border-color: #6ee7b7; transform: translateY(-1px); }
+.ghost-btn lightning-icon { --slds-c-icon-color-foreground: #059669; }
+
+.feed-filters { display: flex; gap: 8px; padding: 0 2px; }
+.filter-pill {
+    background: #ffffff; border: 1px solid #e2e8f0; color: #64748b;
+    font-size: 12px; font-weight: 600; padding: 6px 14px;
+    border-radius: 9999px; cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+.filter-pill:hover { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.filter-pill-active {
+    background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+    color: #ffffff; border-color: transparent;
+    box-shadow: 0 4px 10px rgba(5, 150, 105, 0.25);
+}
+
+.composer-wrap {
+    background: #ffffff; border: 1px solid #e2e8f0;
+    border-radius: 14px; padding: 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.feed-list {
+    display: flex; flex-direction: column; gap: 10px;
+    overflow-y: auto; padding-right: 2px;
+}
+.feed-list::-webkit-scrollbar { width: 6px; }
+.feed-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+.feed-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 12px; padding: 40px 20px;
+    color: #64748b; font-size: 13px; border-radius: 14px;
+    background: #ffffff; border: 1px dashed #d1fae5;
+}
+.feed-state-error {
+    color: #b91c1c; background: #fef2f2;
+    border-color: #fecaca; border-style: solid;
+}
+.feed-state-empty lightning-icon { --slds-c-icon-color-foreground: #10b981; }
+
+.load-more-wrap { display: flex; justify-content: center; padding: 8px 0 4px 0; }
+.load-more-btn {
+    background: #ffffff; border: 1px solid #a7f3d0; color: #047857;
+    font-weight: 600; font-size: 12.5px; padding: 9px 22px;
+    border-radius: 9999px; cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex; align-items: center; gap: 8px;
+    min-height: 34px;
+    font-family: inherit;
+}
+.load-more-btn:hover:not([disabled]) {
+    background: #ecfdf5;
+    box-shadow: 0 4px 10px rgba(5, 150, 105, 0.15);
+    transform: translateY(-1px);
+}
+.load-more-btn[disabled] { opacity: 0.7; cursor: not-allowed; }

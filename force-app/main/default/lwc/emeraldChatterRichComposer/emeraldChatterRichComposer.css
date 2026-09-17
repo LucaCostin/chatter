@@ -1,0 +1,133 @@
+:host { display: block; }
+
+.rich-composer {
+    display: block;
+}
+
+.rte-wrap {
+    position: relative;
+}
+
+.rich-composer-compact lightning-input-rich-text {
+    --slds-c-input-spacing-vertical-start: 6px;
+    --slds-c-input-spacing-horizontal-start: 10px;
+}
+
+/* Mention popover */
+.mention-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 6px;
+    background: #ffffff;
+    border: 1px solid #d1fae5;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+    z-index: 30;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.mention-loading,
+.mention-empty {
+    padding: 14px 16px;
+    font-size: 12.5px;
+    color: #64748b;
+    font-style: italic;
+}
+
+.mention-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px;
+}
+
+.mention-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s ease;
+    font-family: inherit;
+}
+
+.mention-item:hover {
+    background: #ecfdf5;
+}
+
+.mention-avatar,
+.mention-avatar-fallback {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+.mention-avatar-fallback {
+    background: #ecfdf5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mention-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.mention-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #064e3b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mention-sub {
+    font-size: 11.5px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mention-type {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #059669;
+    background: #ecfdf5;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+/* Mention pill inside the editor */
+:host ::slotted(*) {
+    /* nothing — the pill lives inside the LWC's shadow DOM */
+}
+
+/* Actual pill style — applied via lightning-input-rich-text's
+   content sanitizer, which may strip classes. Fallback below. */
+.mention-pill {
+    display: inline-block;
+    background: #ecfdf5;
+    color: #047857;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 6px;
+    border: 1px solid #a7f3d0;
+}

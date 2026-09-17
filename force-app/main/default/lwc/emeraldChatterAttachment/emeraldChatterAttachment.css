@@ -1,0 +1,142 @@
+:host { display: block; }
+
+.attachment-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+}
+
+.attachment {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    text-decoration: none;
+    color: #065f46;
+    transition: all 0.15s ease;
+}
+
+.attachment:hover {
+    background: #ecfdf5;
+    border-color: #6ee7b7;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(5, 150, 105, 0.12);
+}
+
+.attachment-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid #d1fae5;
+}
+
+.attachment-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.attachment-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.attachment-size {
+    font-size: 11px;
+    color: #64748b;
+}
+
+.attachment-download {
+    --slds-c-icon-color-foreground: #059669;
+    flex-shrink: 0;
+}
+
+.attachment-remove {
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0 10px;
+    cursor: pointer;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    transition: all 0.12s ease;
+}
+
+.attachment-remove:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+
+/* Delete confirm (inline — window.confirm is blocked in LWR sandbox) */
+.attachment-confirm {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+}
+.attachment-confirm-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #991b1b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.attachment-confirm-no,
+.attachment-confirm-yes {
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    min-height: 26px;
+    border: none;
+    flex-shrink: 0;
+}
+.attachment-confirm-no {
+    background: #ffffff;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+.attachment-confirm-no:hover:not([disabled]) {
+    background: #f1f5f9;
+}
+.attachment-confirm-yes {
+    background: #dc2626;
+    color: #ffffff;
+}
+.attachment-confirm-yes:hover:not([disabled]) {
+    background: #b91c1c;
+}
+.attachment-confirm-no[disabled],
+.attachment-confirm-yes[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

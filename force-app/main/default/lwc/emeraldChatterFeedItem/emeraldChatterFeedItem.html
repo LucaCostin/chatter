@@ -1,0 +1,136 @@
+<template>
+    <article class={elementClass}>
+
+        <header class="feed-item-header">
+            <div class="feed-item-avatar">
+                <lightning-avatar
+                    src={el.actorPhoto}
+                    fallback-icon-name="utility:user"
+                    size="small"
+                    alt={el.actorName}>
+                </lightning-avatar>
+            </div>
+            <div class="feed-item-meta">
+                <span class="feed-item-author">{el.actorName}</span>
+                <span class="feed-item-time">{el.displayTime}</span>
+            </div>
+
+            <template if:false={isConfirmingDelete}>
+                <template if:true={showEditButton}>
+                    <button class="icon-action" onclick={handleEditClick} title="Edit">
+                        <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
+                    </button>
+                </template>
+                <template if:true={el.canDelete}>
+                    <button class="icon-action" onclick={handleDeleteClick} title="Delete">
+                        <lightning-icon icon-name="utility:delete" size="xx-small"></lightning-icon>
+                    </button>
+                </template>
+            </template>
+            <template if:true={isConfirmingDelete}>
+                <div class="delete-confirm">
+                    <span class="delete-confirm-label">Delete?</span>
+                    <button class="delete-confirm-cancel" onclick={handleDeleteCancel}>Cancel</button>
+                    <button class="delete-confirm-yes" onclick={handleDeleteConfirm}>Delete</button>
+                </div>
+            </template>
+        </header>
+
+        <!-- View mode -->
+        <template if:false={isEditing}>
+            <div class="feed-item-body">
+                <lightning-formatted-rich-text
+                    class="feed-item-text"
+                    value={renderedTextHtml}>
+                </lightning-formatted-rich-text>
+            </div>
+        </template>
+
+        <!-- Edit mode -->
+        <template if:true={isEditing}>
+            <div class="feed-item-edit">
+                <c-emerald-chatter-composer
+                    class="edit-rte"
+                    placeholder="Edit your post..."
+                    submit-label="Save"
+                    hide-avatar
+                    show-cancel
+                    onchange={handleEditChange}
+                    onsubmit={handleEditSubmit}
+                    oncancel={handleEditCancel}>
+                </c-emerald-chatter-composer>
+            </div>
+        </template>
+
+        <template if:true={el.hasAttachments}>
+            <div class="feed-item-attachments">
+                <template for:each={el.attachments} for:item="att">
+                    <c-emerald-chatter-attachment
+                        key={att.id}
+                        attachment={att}
+                        can-delete={canDeleteAttachments}
+                        onattachmentdeleted={handleAttachmentDeleted}
+                        onattachmentdeleteerror={handleAttachmentDeleteError}>
+                    </c-emerald-chatter-attachment>
+                </template>
+            </div>
+        </template>
+
+        <footer class="feed-item-actions">
+            <button class={likeButtonClass} onclick={handleLikeClick} title="Like">
+                <lightning-icon icon-name="utility:like" size="xx-small"></lightning-icon>
+                <span>{likeLabel}</span>
+            </button>
+            <button class={commentsToggleClass} onclick={handleCommentToggle} title="Comment">
+                <lightning-icon icon-name="utility:comments" size="xx-small"></lightning-icon>
+                <span>{commentLabel}</span>
+            </button>
+        </footer>
+
+        <template if:true={commentsOpen}>
+            <section class="feed-item-comments">
+
+                <div class="comment-composer-wrapper">
+                    <c-emerald-chatter-composer
+                        class="comment-composer-rt"
+                        placeholder="Write a comment..."
+                        submit-label="Reply"
+                        compact-mode
+                        hide-attach
+                        onchange={handleCommentChange}
+                        onsubmit={handleCommentSubmit}>
+                    </c-emerald-chatter-composer>
+                </div>
+
+                <template if:true={commentsLoading}>
+                    <div class="comment-loading">
+                        <span class="css-spinner"></span>
+                        <span class="comment-loading-text">Loading comments…</span>
+                    </div>
+                </template>
+
+                <template if:true={hasComments}>
+                    <ul class="comment-list">
+                        <template for:each={comments} for:item="c">
+                            <c-emerald-chatter-comment key={c.key}
+                                                       comment={c}
+                                                       oncommentdelete={handleCommentDelete}
+                                                       oncommentedited={handleCommentEdited}>
+                            </c-emerald-chatter-comment>
+                        </template>
+                    </ul>
+                </template>
+
+                <template if:true={commentsHasMore}>
+                    <div class="comment-load-more">
+                        <button onclick={handleLoadMoreComments} disabled={commentsLoading}>
+                            Load more comments
+                        </button>
+                    </div>
+                </template>
+
+            </section>
+        </template>
+
+    </article>
+</template>

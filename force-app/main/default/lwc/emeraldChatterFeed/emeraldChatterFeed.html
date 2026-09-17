@@ -1,0 +1,89 @@
+<template>
+    <div class={feedClass}>
+
+        <header class="feed-header">
+            <div class="feed-header-left">
+                <div class="feed-header-icon">
+                    <lightning-icon icon-name={headerIcon} size="small" variant="inverse"></lightning-icon>
+                </div>
+                <div class="feed-header-text">
+                    <h2 class="feed-header-title">{headerLabel}</h2>
+                    <span class="feed-header-sub">Chatter feed</span>
+                </div>
+            </div>
+            <div class="feed-header-right">
+                <button class="ghost-btn" title="Refresh" onclick={handleRefresh}>
+                    <lightning-icon icon-name="utility:refresh" size="x-small"></lightning-icon>
+                </button>
+            </div>
+        </header>
+
+        <div class="feed-filters">
+            <template for:each={filterOptions} for:item="f">
+                <button key={f.value}
+                        class={f.cls}
+                        data-value={f.value}
+                        onclick={handleFilterClick}>
+                    {f.label}
+                </button>
+            </template>
+        </div>
+
+        <div class="composer-wrap">
+            <c-emerald-chatter-composer
+                placeholder="Share an update..."
+                disabled={isPosting}
+                onpost={handlePost}>
+            </c-emerald-chatter-composer>
+        </div>
+
+        <template if:true={isLoading}>
+            <div class="feed-state">
+                <lightning-spinner alternative-text="Loading feed" size="small"></lightning-spinner>
+            </div>
+        </template>
+
+        <template if:true={errorMessage}>
+            <div class="feed-state feed-state-error">{errorMessage}</div>
+        </template>
+
+        <template if:false={isLoading}>
+            <template if:false={errorMessage}>
+                <div class="feed-list">
+                    <template for:each={filteredElements} for:item="el">
+                        <c-emerald-chatter-feed-item
+                            key={el.key}
+                            element={el}
+                            ondelete={handleDelete}
+                            oncommentcount={handleCommentCount}
+                            onedited={handleEdited}>
+                        </c-emerald-chatter-feed-item>
+                    </template>
+                </div>
+
+                <template if:true={showEmpty}>
+                    <div class="feed-state feed-state-empty">
+                        <lightning-icon icon-name="utility:comments" size="medium"></lightning-icon>
+                        <p>No posts yet. Start the conversation.</p>
+                    </div>
+                </template>
+
+                <template if:true={hasMore}>
+                    <div class="load-more-wrap">
+                        <button class="load-more-btn"
+                                onclick={handleLoadMore}
+                                disabled={isLoadingMore}>
+                            <template if:true={isLoadingMore}>
+                                <lightning-spinner alternative-text="Loading more" size="small"></lightning-spinner>
+                            </template>
+                            <template if:false={isLoadingMore}>
+                                Load more
+                            </template>
+                        </button>
+                    </div>
+                </template>
+            </template>
+        </template>
+
+    </div>
+</template>

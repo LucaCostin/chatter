@@ -1,0 +1,91 @@
+<template>
+    <div class={composerClass}>
+
+        <template if:false={hideAvatar}>
+            <div class="composer-avatar">
+                <template if:true={avatarUrl}>
+                    <img src={avatarUrl} alt={userName} />
+                </template>
+                <template if:false={avatarUrl}>
+                    <lightning-icon icon-name="utility:user" size="small" variant="inverse"></lightning-icon>
+                </template>
+            </div>
+        </template>
+
+        <div class="composer-body">
+            <div class="composer-input-wrap" onkeydown={handleKeydown}>
+                <c-emerald-chatter-rich-composer
+                    placeholder={placeholder}
+                    disabled={disabled}
+                    onchange={handleTextChange}>
+                </c-emerald-chatter-rich-composer>
+            </div>
+
+            <template if:true={hasFiles}>
+                <ul class="pending-files">
+                    <template for:each={pendingFiles} for:item="f">
+                        <li key={f.key} class="pending-file">
+                            <template if:true={f.uploading}>
+                                <span class="pending-file-spinner"></span>
+                            </template>
+                            <template if:false={f.uploading}>
+                                <lightning-icon icon-name="utility:file" size="xx-small" class="pending-file-icon"></lightning-icon>
+                            </template>
+                            <span class="pending-file-name" title={f.name}>{f.name}</span>
+                            <span class="pending-file-size">
+                                <template if:true={f.uploading}>Uploading…</template>
+                                <template if:false={f.uploading}>{f.sizeLabel}</template>
+                            </span>
+                            <button class="pending-file-remove"
+                                    data-id={f.id}
+                                    onclick={handleRemoveFile}
+                                    title="Remove">
+                                <lightning-icon icon-name="utility:close" size="xx-small"></lightning-icon>
+                            </button>
+                        </li>
+                    </template>
+                </ul>
+            </template>
+
+            <div class="composer-footer">
+                <div class="composer-tools">
+                    <template if:false={hideAttach}>
+                        <button class="tool-btn" onclick={openFilePicker} disabled={disabled}>
+                            <lightning-icon icon-name="utility:attach" size="x-small"></lightning-icon>
+                            <span>Attach</span>
+                        </button>
+                        <input type="file"
+                               class="hidden-file-input"
+                               multiple
+                               onchange={handleFileChosen} />
+                    </template>
+                </div>
+
+                <div class="composer-actions">
+                    <template if:true={showCharWarning}>
+                        <span class="char-warning">{charLimitLabel}</span>
+                    </template>
+
+                    <template if:true={showCancel}>
+                        <button class="cancel-btn"
+                                onclick={handleCancel}
+                                disabled={isPosting}>
+                            Cancel
+                        </button>
+                    </template>
+
+                    <button class="submit-btn"
+                            onclick={handleSubmit}
+                            disabled={submitDisabled}>
+                        <template if:true={isPosting}>
+                            <lightning-spinner alternative-text="Submitting" size="small"></lightning-spinner>
+                        </template>
+                        <template if:false={isPosting}>
+                            <span>{submitLabel}</span>
+                        </template>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>

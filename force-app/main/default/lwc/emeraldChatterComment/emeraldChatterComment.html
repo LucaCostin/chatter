@@ -1,0 +1,69 @@
+<template>
+    <li class="comment">
+        <div class="comment-avatar">
+            <lightning-avatar
+                src={comment.authorPhoto}
+                fallback-icon-name="utility:user"
+                size="x-small"
+                alt={comment.authorName}>
+            </lightning-avatar>
+        </div>
+        <div class="comment-body">
+            <div class="comment-meta">
+                <span class="comment-author">{comment.authorName}</span>
+                <span class="comment-time">{comment.displayTime}</span>
+            </div>
+
+            <template if:false={isEditing}>
+                <lightning-formatted-rich-text
+                    class="comment-text"
+                    value={renderedCommentHtml}>
+                </lightning-formatted-rich-text>
+            </template>
+
+            <template if:true={isEditing}>
+                <div class="comment-edit">
+                    <c-emerald-chatter-composer
+                        class="comment-edit-rte"
+                        placeholder="Edit your comment..."
+                        submit-label="Save"
+                        hide-avatar
+                        show-cancel
+                        compact-mode
+                        onchange={handleEditChange}
+                        onsubmit={handleEditSubmit}
+                        oncancel={handleEditCancel}>
+                    </c-emerald-chatter-composer>
+                </div>
+            </template>
+
+            <div class="comment-actions">
+                <button class={likeClass} onclick={handleLike}>
+                    <lightning-icon icon-name="utility:like" size="xx-small"></lightning-icon>
+                    <template if:true={likeCountLabel}>
+                        <span>{likeCountLabel}</span>
+                    </template>
+                </button>
+
+                <template if:false={isConfirmingDelete}>
+                    <template if:true={showEditButton}>
+                        <button class="comment-action" onclick={handleEditClick} title="Edit">
+                            <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
+                        </button>
+                    </template>
+                    <button class="comment-action" onclick={handleDeleteClick} title="Delete">
+                        <lightning-icon icon-name="utility:delete" size="xx-small"></lightning-icon>
+                    </button>
+                </template>
+
+                <template if:true={isConfirmingDelete}>
+                    <div class="comment-delete-confirm">
+                        <span class="comment-delete-label">Delete?</span>
+                        <button class="comment-delete-cancel" onclick={handleDeleteCancel}>No</button>
+                        <button class="comment-delete-yes" onclick={handleDeleteConfirm}>Yes</button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </li>
+</template>

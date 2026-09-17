@@ -1,0 +1,114 @@
+<template>
+    <div class={shellClass}>
+
+        <template if:true={showRail}>
+            <aside class={railClass}>
+                <header class="rail-header">
+                    <div class="rail-brand">
+                        <div class="rail-brand-mark">
+                            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z"
+                                      fill="currentColor"/>
+                            </svg>
+                        </div>
+                        <span class="rail-brand-text">Feeds</span>
+                    </div>
+                    <button class="rail-collapse-btn"
+                            onclick={handleRailToggle}
+                            title="Toggle rail">
+                        <lightning-icon icon-name="utility:chevronleft" size="x-small" variant="inverse"></lightning-icon>
+                    </button>
+                </header>
+
+                <template if:true={isLoadingConfigs}>
+                    <div class="rail-loading">
+                        <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                    </div>
+                </template>
+
+                <template if:false={isLoadingConfigs}>
+                    <nav class="rail-nav">
+                        <template for:each={configsForRender} for:item="cfg">
+                            <div key={cfg.key} class="rail-config-block">
+
+                                <button class={cfg.configHeaderClass}
+                                        data-dev={cfg.developerName}
+                                        onclick={handleConfigClick}>
+                                    <lightning-icon icon-name={cfg.chevronIcon}
+                                                    size="xx-small"
+                                                    class="rail-chevron"></lightning-icon>
+                                    <lightning-icon icon-name={cfg.icon}
+                                                    size="small"
+                                                    class="rail-config-icon"></lightning-icon>
+                                    <span class="rail-config-label">{cfg.label}</span>
+                                </button>
+
+                                <template if:true={cfg.expanded}>
+                                    <template if:true={cfg.loading}>
+                                        <div class="rail-sub-loading">
+                                            <lightning-spinner alternative-text="Loading" size="small"></lightning-spinner>
+                                        </div>
+                                    </template>
+                                    <template if:false={cfg.loading}>
+                                        <template if:true={cfg.error}>
+                                            <div class="rail-sub-error">{cfg.error}</div>
+                                        </template>
+                                        <template if:false={cfg.error}>
+                                            <template if:true={cfg.hasRecords}>
+                                                <ul class="rail-record-list">
+                                                    <template for:each={cfg.records} for:item="rec">
+                                                        <li key={rec.key}>
+                                                            <button class={rec.railItemClass}
+                                                                    data-id={rec.id}
+                                                                    data-dev={cfg.developerName}
+                                                                    onclick={handleRecordClick}>
+                                                                <span class="rail-record-label">{rec.label}</span>
+                                                                <template if:true={rec.subtitle}>
+                                                                    <span class="rail-record-sub">{rec.subtitle}</span>
+                                                                </template>
+                                                            </button>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </template>
+                                            <template if:false={cfg.hasRecords}>
+                                                <div class="rail-sub-empty">No records</div>
+                                            </template>
+                                        </template>
+                                    </template>
+                                </template>
+
+                            </div>
+                        </template>
+                    </nav>
+                </template>
+            </aside>
+        </template>
+
+        <section class="feed-area">
+            <template if:true={hasActiveRecord}>
+                <c-emerald-chatter-feed
+                    record-id={activeRecordId}
+                    header-label={activeRecordHeader.label}
+                    header-icon={activeRecordHeader.icon}
+                    compact-mode={compactMode}>
+                </c-emerald-chatter-feed>
+            </template>
+
+            <template if:true={noRecordSelected}>
+                <div class="feed-empty">
+                    <div class="feed-empty-mark">
+                        <lightning-icon icon-name="utility:comments" size="large" variant="inverse"></lightning-icon>
+                    </div>
+                    <h2>Select a feed</h2>
+                    <p>Pick a record from the rail to open its Chatter feed.</p>
+                </div>
+            </template>
+
+            <template if:true={errorMessage}>
+                <div class="feed-error">{errorMessage}</div>
+            </template>
+        </section>
+
+    </div>
+</template>
