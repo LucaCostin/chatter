@@ -6,6 +6,7 @@ import likeFeedElement from '@salesforce/apex/ChatterConnectController.likeFeedE
 import unlikeFeedElement from '@salesforce/apex/ChatterConnectController.unlikeFeedElement';
 import updateFeedWithFiles from '@salesforce/apex/ChatterConnectController.updateFeedWithFiles';
 import getCommentEnrichment from '@salesforce/apex/ChatterConnectController.getCommentEnrichment';
+import postCommentWithFiles from '@salesforce/apex/ChatterConnectController.postCommentWithFiles';
 import {
     reduceErrors,
     stripHtml,
@@ -229,16 +230,19 @@ export default class EmeraldChatterFeedItem extends LightningElement {
     }
 
     async handleCommentSubmit(event) {
-        const { text } = event.detail;
+        const { text, contentVersionIds } = event.detail;
         const plain = stripHtml(text || '').trim();
-        if (!plain) return;
+        const hasFiles = contentVersionIds && contentVersionIds.length > 0;
+        if (!plain && !hasFiles) return;
 
         try {
-            const created = await postComment({
+            const result = await postCommentWithFiles({
                 feedElementId: this._el.id,
-                text: text || ''
+                text: text || '',
+                contentVersionIds: contentVersionIds || []
             });
 
+            const created = result.comment;
             if (created) {
                 this.comments = [this.decorateComment(created), ...this.comments];
             }
@@ -251,6 +255,10 @@ export default class EmeraldChatterFeedItem extends LightningElement {
             this.dispatchEvent(new CustomEvent('commentcount', {
                 detail: { elementId: this._el.id, delta: 1 }
             }));
+
+            if (result.attachmentError) {
+                this.showToast('Comment saved with warnings', result.attachmentError, 'warning');
+            }
         } catch (err) {
             this.showToast('Error', reduceErrors(err), 'error');
         }

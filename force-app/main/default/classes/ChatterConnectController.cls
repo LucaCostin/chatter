@@ -97,6 +97,28 @@ public with sharing class ChatterConnectController {
     }
 
     @AuraEnabled
+    public static ChatterPostResultDto postCommentWithFiles(
+        String feedElementId,
+        String text,
+        List<String> contentVersionIds
+    ) {
+        return ChatterCommentService.postCommentWithFiles(feedElementId, text, contentVersionIds);
+    }
+
+    @AuraEnabled
+    public static ChatterPostResultDto updateCommentWithFiles(
+        String commentId,
+        String text,
+        List<String> newContentVersionIds
+    ) {
+        return ChatterCommentService.updateCommentWithFiles(
+            commentId,
+            text,
+            newContentVersionIds
+        );
+    }
+
+    @AuraEnabled
     public static void deleteComment(String commentId) {
         ChatterCommentService.deleteComment(commentId);
     }

@@ -19,6 +19,17 @@
                     class="comment-text"
                     value={renderedCommentHtml}>
                 </lightning-formatted-rich-text>
+
+                <template if:true={hasExistingFile}>
+                    <div class="comment-attachments">
+                        <template for:each={comment.attachments} for:item="att">
+                            <c-emerald-chatter-attachment
+                                key={att.id}
+                                attachment={att}>
+                            </c-emerald-chatter-attachment>
+                        </template>
+                    </div>
+                </template>
             </template>
 
             <template if:true={isEditing}>

@@ -109,9 +109,14 @@ public with sharing class ChatterDtoMapper {
         if (page.items == null) return dto;
 
         String me = UserInfo.getUserId();
+        List<String> commentIds = new List<String>();
+
         for (ConnectApi.Comment c : page.items) {
-            dto.comments.add(toComment(c, me));
+            ChatterCommentDto d = toComment(c, me);
+            dto.comments.add(d);
+            commentIds.add(d.id);
         }
+
         return dto;
     }
 
@@ -143,6 +148,15 @@ public with sharing class ChatterDtoMapper {
 
         if (String.isNotBlank(d.authorId) && d.authorId == currentUserId) {
             d.canEdit = true;
+        }
+
+        if (c.capabilities != null && c.capabilities.content != null) {
+            ConnectApi.ContentCapability cc = c.capabilities.content;
+            ChatterAttachmentDto a = new ChatterAttachmentDto();
+            a.id    = cc.id;
+            a.title = cc.title;
+            a.url   = '/sfsites/c/sfc/servlet.shepherd/document/download/' + cc.id;
+            d.attachments.add(a);
         }
         return d;
     }
@@ -214,7 +228,7 @@ public with sharing class ChatterDtoMapper {
     //  ATTACHMENT LOADING (SOQL)
     // ============================================================
 
-    private static Map<String, List<ChatterAttachmentDto>> loadAttachmentsForFeedElements(
+    public static Map<String, List<ChatterAttachmentDto>> loadAttachmentsForFeedElements(
         List<String> feedElementIds
     ) {
         Map<String, List<ChatterAttachmentDto>> result =

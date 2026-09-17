@@ -12,11 +12,13 @@ public with sharing class ChatterCommentDto {
     @AuraEnabled public String  parentId;
     @AuraEnabled public Boolean canEdit;
     @AuraEnabled public List<ChatterInlineImageDto> inlineImages;
+    @AuraEnabled public List<ChatterAttachmentDto> attachments;
 
     public ChatterCommentDto() {
         this.likeCount       = 0;
         this.currentUserLike = false;
         this.canEdit         = false;
         this.inlineImages    = new List<ChatterInlineImageDto>();
+        this.attachments     = new List<ChatterAttachmentDto>();
     }
 }

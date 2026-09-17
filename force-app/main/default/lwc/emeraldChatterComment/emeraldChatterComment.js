@@ -3,7 +3,7 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import likeComment from '@salesforce/apex/ChatterConnectController.likeComment';
 import unlikeComment from '@salesforce/apex/ChatterConnectController.unlikeComment';
 import deleteComment from '@salesforce/apex/ChatterConnectController.deleteComment';
-import updateComment from '@salesforce/apex/ChatterConnectController.updateComment';
+import updateCommentWithFiles from '@salesforce/apex/ChatterConnectController.updateCommentWithFiles';
 import {
     reduceErrors,
     stripHtml,
@@ -77,7 +77,6 @@ export default class EmeraldChatterComment extends LightningElement {
 
     handleEditClick() {
         this.isEditing = true;
-        // Convert server wire format → anchor pill for the RTE
         this.editValue = wireTokensToComposerTokens(this._text || '');
         // eslint-disable-next-line @lwc/lwc/no-async-operation
         setTimeout(() => {
@@ -105,10 +104,13 @@ export default class EmeraldChatterComment extends LightningElement {
 
         this.editSaving = true;
         try {
-            const updated = await updateComment({
+            const result = await updateCommentWithFiles({
                 commentId: this.comment.id,
-                text: text || ''
+                text: text || '',
+                newContentVersionIds: []
             });
+
+            const updated = result.comment;
             this._text = updated.text;
             this.isEditing = false;
             this.editValue = '';
@@ -162,11 +164,13 @@ export default class EmeraldChatterComment extends LightningElement {
     get showEditButton() {
         return this.comment.canEdit === true;
     }
+    get hasExistingFile() {
+        return this.comment.attachments && this.comment.attachments.length > 0;
+    }
 
     get renderedCommentHtml() {
         let html = mentionTokensToLinks(this._text || '');
 
-        // Inline images
         const imgs = this.comment.inlineImages || [];
         for (const img of imgs) {
             const token = `\\[\\[IMG:${img.position}\\]\\]`;
