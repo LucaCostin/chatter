@@ -423,32 +423,6 @@ private class ChatterDtoMapperTest {
     // ============================================================
 
     @isTest
-    static void testEnrichCommentsEmpty() {
-        List<ChatterCommentDto> results = ChatterDtoMapper.enrichComments(new List<String>());
-        System.assertEquals(0, results.size());
-    }
-
-    @isTest
-    static void testEnrichCommentsNull() {
-        List<ChatterCommentDto> results = ChatterDtoMapper.enrichComments(null);
-        System.assertEquals(0, results.size());
-    }
-
-    @isTest
-    static void testEnrichFeedEditPermissionsEmpty() {
-        Map<String, Boolean> results =
-            ChatterDtoMapper.enrichFeedEditPermissions(new List<String>());
-        System.assertEquals(0, results.size());
-    }
-
-    @isTest
-    static void testEnrichFeedEditPermissionsNull() {
-        Map<String, Boolean> results =
-            ChatterDtoMapper.enrichFeedEditPermissions(null);
-        System.assertEquals(0, results.size());
-    }
-
-    @isTest
     static void testLoadAttachmentsEmpty() {
         Map<String, List<ChatterAttachmentDto>> result =
             ChatterDtoMapper.loadAttachmentsForFeedElements(new List<String>());

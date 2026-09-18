@@ -20,12 +20,16 @@ public with sharing class ChatterConnectController {
 
     @AuraEnabled
     public static ChatterFeedPageDto getFeed(String recordId, String pageToken, Integer pageSize) {
-        return ChatterDtoMapper.toFeedPage(ChatterFeedService.getFeed(recordId, pageToken, pageSize));
+        return ChatterDtoMapper.toFeedPage(
+            ChatterFeedService.getFeed(recordId, pageToken, pageSize)
+        );
     }
 
     @AuraEnabled
     public static ChatterFeedPageDto getNewsFeed(String pageToken, Integer pageSize) {
-        return ChatterDtoMapper.toFeedPage(ChatterFeedService.getNewsFeed(pageToken, pageSize));
+        return ChatterDtoMapper.toFeedPage(
+            ChatterFeedService.getNewsFeed(pageToken, pageSize)
+        );
     }
 
     // ============================================================
@@ -34,7 +38,9 @@ public with sharing class ChatterConnectController {
 
     @AuraEnabled
     public static ChatterFeedElementDto postFeed(String recordId, String text, String feedElementType) {
-        return ChatterDtoMapper.toFeedElement(ChatterFeedService.postFeed(recordId, text, feedElementType));
+        return ChatterDtoMapper.toFeedElement(
+            ChatterFeedService.postFeed(recordId, text, feedElementType)
+        );
     }
 
     @AuraEnabled
@@ -90,6 +96,18 @@ public with sharing class ChatterConnectController {
     }
 
     @AuraEnabled
+    public static ChatterCommentDto postCommentWithFiles(
+        String feedElementId,
+        String text,
+        List<String> contentVersionIds
+    ) {
+        ChatterPostResultDto result = ChatterCommentService.postCommentWithFiles(
+            feedElementId, text, contentVersionIds
+        );
+        return result.comment;
+    }
+
+    @AuraEnabled
     public static ChatterCommentDto updateComment(String commentId, String text) {
         return ChatterDtoMapper.toComment(
             ChatterCommentService.updateComment(commentId, text)
@@ -97,25 +115,15 @@ public with sharing class ChatterConnectController {
     }
 
     @AuraEnabled
-    public static ChatterPostResultDto postCommentWithFiles(
-        String feedElementId,
-        String text,
-        List<String> contentVersionIds
-    ) {
-        return ChatterCommentService.postCommentWithFiles(feedElementId, text, contentVersionIds);
-    }
-
-    @AuraEnabled
-    public static ChatterPostResultDto updateCommentWithFiles(
+    public static ChatterCommentDto updateCommentWithFiles(
         String commentId,
         String text,
         List<String> newContentVersionIds
     ) {
-        return ChatterCommentService.updateCommentWithFiles(
-            commentId,
-            text,
-            newContentVersionIds
+        ChatterPostResultDto result = ChatterCommentService.updateCommentWithFiles(
+            commentId, text, newContentVersionIds
         );
+        return result.comment;
     }
 
     @AuraEnabled
@@ -138,24 +146,6 @@ public with sharing class ChatterConnectController {
     }
 
     // ============================================================
-    //  ENRICHMENT (batch, capped)
-    // ============================================================
-
-    @AuraEnabled
-    public static List<ChatterCommentDto> getCommentEnrichment(List<String> commentIds) {
-        if (commentIds == null || commentIds.isEmpty()) return new List<ChatterCommentDto>();
-        if (commentIds.size() > 50) commentIds = cap(commentIds, 50);
-        return ChatterDtoMapper.enrichComments(commentIds);
-    }
-
-    @AuraEnabled
-    public static Map<String, Boolean> getFeedEditPermissions(List<String> feedElementIds) {
-        if (feedElementIds == null || feedElementIds.isEmpty()) return new Map<String, Boolean>();
-        if (feedElementIds.size() > 50) feedElementIds = cap(feedElementIds, 50);
-        return ChatterDtoMapper.enrichFeedEditPermissions(feedElementIds);
-    }
-
-    // ============================================================
     //  MENTIONS / USER
     // ============================================================
 
@@ -170,15 +160,5 @@ public with sharing class ChatterConnectController {
             SELECT Id, Name, SmallPhotoUrl, FullPhotoUrl, Title
             FROM User WHERE Id = :UserInfo.getUserId() LIMIT 1
         ];
-    }
-
-    // ============================================================
-    //  PRIVATE
-    // ============================================================
-
-    private static List<String> cap(List<String> source, Integer max) {
-        List<String> out = new List<String>();
-        for (Integer i = 0; i < max; i++) out.add(source[i]);
-        return out;
     }
 }

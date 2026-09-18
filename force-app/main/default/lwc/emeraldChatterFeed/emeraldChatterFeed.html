@@ -1,6 +1,7 @@
 <template>
     <div class={feedClass}>
 
+        <!-- Header — always rendered, never blocked -->
         <header class="feed-header">
             <div class="feed-header-left">
                 <div class="feed-header-icon">
@@ -18,6 +19,7 @@
             </div>
         </header>
 
+        <!-- Filters — always rendered -->
         <div class="feed-filters">
             <template for:each={filterOptions} for:item="f">
                 <button key={f.value}
@@ -29,6 +31,7 @@
             </template>
         </div>
 
+        <!-- Composer — always rendered, usable during load -->
         <div class="composer-wrap">
             <c-emerald-chatter-composer
                 placeholder="Share an update..."
@@ -38,16 +41,41 @@
             </c-emerald-chatter-composer>
         </div>
 
-        <template if:true={isLoading}>
-            <div class="feed-state">
-                <lightning-spinner alternative-text="Loading feed" size="small"></lightning-spinner>
-            </div>
-        </template>
-
+        <!-- Error -->
         <template if:true={errorMessage}>
             <div class="feed-state feed-state-error">{errorMessage}</div>
         </template>
 
+        <!-- Skeleton while loading — placeholders, not overlay -->
+        <template if:true={isLoading}>
+            <div class="skeleton-feed">
+                <div class="skeleton-item">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-body">
+                        <div class="skeleton-line skeleton-line-short"></div>
+                        <div class="skeleton-line skeleton-line-long"></div>
+                        <div class="skeleton-line skeleton-line-medium"></div>
+                    </div>
+                </div>
+                <div class="skeleton-item">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-body">
+                        <div class="skeleton-line skeleton-line-short"></div>
+                        <div class="skeleton-line skeleton-line-long"></div>
+                    </div>
+                </div>
+                <div class="skeleton-item">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-body">
+                        <div class="skeleton-line skeleton-line-short"></div>
+                        <div class="skeleton-line skeleton-line-long"></div>
+                        <div class="skeleton-line skeleton-line-medium"></div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Feed content -->
         <template if:false={isLoading}>
             <template if:false={errorMessage}>
                 <div class="feed-list">
@@ -75,7 +103,7 @@
                                 onclick={handleLoadMore}
                                 disabled={isLoadingMore}>
                             <template if:true={isLoadingMore}>
-                                <lightning-spinner alternative-text="Loading more" size="small"></lightning-spinner>
+                                <span class="btn-spinner"></span>
                             </template>
                             <template if:false={isLoadingMore}>
                                 Load more

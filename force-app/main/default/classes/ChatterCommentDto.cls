@@ -11,6 +11,7 @@ public with sharing class ChatterCommentDto {
     @AuraEnabled public String  myLikeId;
     @AuraEnabled public String  parentId;
     @AuraEnabled public Boolean canEdit;
+    @AuraEnabled public Boolean canDelete;
     @AuraEnabled public List<ChatterInlineImageDto> inlineImages;
     @AuraEnabled public List<ChatterAttachmentDto> attachments;
 
@@ -18,6 +19,7 @@ public with sharing class ChatterCommentDto {
         this.likeCount       = 0;
         this.currentUserLike = false;
         this.canEdit         = false;
+        this.canDelete       = false;
         this.inlineImages    = new List<ChatterInlineImageDto>();
         this.attachments     = new List<ChatterAttachmentDto>();
     }

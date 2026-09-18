@@ -60,20 +60,20 @@ public with sharing class ChatterDtoMapper {
                 }
             }
             d.actorPhoto = relativePhotoUrl(fi.photoUrl);
+            d.canDelete  = fi.isDeleteRestricted == false;
         }
 
         if (el.capabilities != null) {
-            applyCapabilities(d, el.capabilities);
+            applyFeedCapabilities(d, el.capabilities);
         }
 
         if (String.isNotBlank(d.actorId) && d.actorId == currentUserId) {
             d.canEdit = true;
         }
-        d.canDelete = true;
         return d;
     }
 
-    private static void applyCapabilities(
+    private static void applyFeedCapabilities(
         ChatterFeedElementDto d,
         ConnectApi.FeedElementCapabilities caps
     ) {
@@ -93,6 +93,9 @@ public with sharing class ChatterDtoMapper {
         if (caps.bookmarks != null) {
             d.isBookmarked = caps.bookmarks.isBookmarkedByCurrentUser == true;
         }
+        if (caps.edit != null) {
+            d.canEdit = caps.edit.isEditRestricted == false;
+        }
     }
 
     // ============================================================
@@ -109,14 +112,9 @@ public with sharing class ChatterDtoMapper {
         if (page.items == null) return dto;
 
         String me = UserInfo.getUserId();
-        List<String> commentIds = new List<String>();
-
         for (ConnectApi.Comment c : page.items) {
-            ChatterCommentDto d = toComment(c, me);
-            dto.comments.add(d);
-            commentIds.add(d.id);
+            dto.comments.add(toComment(c, me));
         }
-
         return dto;
     }
 
@@ -142,74 +140,48 @@ public with sharing class ChatterDtoMapper {
             d.inlineImages = result.images;
         }
 
-        if (c.parent != null) {
-            d.parentId = c.parent.id;
+        // Likes — direct properties on Comment
+        if (c.likes != null && c.likes.total != null) {
+            d.likeCount = c.likes.total;
+        }
+        if (c.myLike != null && String.isNotBlank(c.myLike.id)) {
+            d.currentUserLike = true;
+            d.myLikeId        = c.myLike.id;
         }
 
+        // Edit
+        if (c.capabilities != null && c.capabilities.edit != null) {
+            d.canEdit = c.capabilities.edit.isEditRestricted == false;
+        }
         if (String.isNotBlank(d.authorId) && d.authorId == currentUserId) {
             d.canEdit = true;
         }
 
+        // Delete — direct property on Comment
+        d.canDelete = c.isDeleteRestricted == false;
+
+        // File attachment
         if (c.capabilities != null && c.capabilities.content != null) {
             ConnectApi.ContentCapability cc = c.capabilities.content;
             ChatterAttachmentDto a = new ChatterAttachmentDto();
             a.id    = cc.id;
             a.title = cc.title;
-            a.url   = '/sfsites/c/sfc/servlet.shepherd/document/download/' + cc.id;
+            if (String.isNotBlank(cc.id)) {
+                a.url = '/sfsites/c/sfc/servlet.shepherd/document/download/' + cc.id;
+            }
             d.attachments.add(a);
         }
+
+        if (c.parent != null) {
+            d.parentId = c.parent.id;
+        }
+
         return d;
     }
 
-    public static List<ChatterCommentDto> enrichComments(List<String> commentIds) {
-        List<ChatterCommentDto> out = new List<ChatterCommentDto>();
-        if (commentIds == null || commentIds.isEmpty()) return out;
-
-        String me          = UserInfo.getUserId();
-        String communityId = ChatterCommunityContext.getCommunityId();
-
-        for (String commentId : commentIds) {
-            ChatterCommentDto d = new ChatterCommentDto();
-            d.id = commentId;
-
-            try {
-                ConnectApi.ChatterLikePage likePage =
-                    ConnectApi.ChatterFeeds.getLikesForComment(communityId, commentId, null, 25);
-                if (likePage != null) {
-                    d.likeCount = likePage.total == null ? 0 : likePage.total;
-                    if (likePage.items != null) {
-                        for (ConnectApi.ChatterLike cl : likePage.items) {
-                            if (cl.user != null && cl.user.id == me) {
-                                d.currentUserLike = true;
-                                d.myLikeId        = cl.id;
-                                break;
-                            }
-                        }
-                    }
-                }
-            } catch (Exception ignored) {}
-
-            try {
-                d.canEdit = ChatterCommentService.canEditComment(commentId);
-            } catch (Exception ignored) {}
-
-            out.add(d);
-        }
-        return out;
+    public static ChatterCommentDto toComment(ConnectApi.Comment c) {
+        return toComment(c, UserInfo.getUserId());
     }
-
-    public static Map<String, Boolean> enrichFeedEditPermissions(List<String> nonOwnFeedElementIds) {
-        Map<String, Boolean> result = new Map<String, Boolean>();
-        if (nonOwnFeedElementIds == null) return result;
-        for (String id : nonOwnFeedElementIds) {
-            result.put(id, ChatterFeedService.canEditFeedElement(id));
-        }
-        return result;
-    }
-
-    // ============================================================
-    //  SINGLE-ELEMENT MAPPERS
-    // ============================================================
 
     public static ChatterFeedElementDto toFeedElement(ConnectApi.FeedElement el) {
         ChatterFeedElementDto d = toFeedElement(el, UserInfo.getUserId());
@@ -220,12 +192,8 @@ public with sharing class ChatterDtoMapper {
         return d;
     }
 
-    public static ChatterCommentDto toComment(ConnectApi.Comment c) {
-        return toComment(c, UserInfo.getUserId());
-    }
-
     // ============================================================
-    //  ATTACHMENT LOADING (SOQL)
+    //  ATTACHMENT LOADING
     // ============================================================
 
     public static Map<String, List<ChatterAttachmentDto>> loadAttachmentsForFeedElements(
@@ -284,7 +252,7 @@ public with sharing class ChatterDtoMapper {
         if (cv.ContentSize != null) {
             a.fileSize = Integer.valueOf(cv.ContentSize);
         }
-        a.url = '/sfc/servlet.shepherd/document/download/' + cv.ContentDocumentId;
+        a.url = '/sfsites/c/sfc/servlet.shepherd/document/download/' + cv.ContentDocumentId;
         return a;
     }
 
@@ -320,11 +288,6 @@ public with sharing class ChatterDtoMapper {
         List<ChatterInlineImageDto> images = new List<ChatterInlineImageDto>();
     }
 
-    /**
-     * Converts Connect message segments to HTML for rendering in the feed.
-     * Mentions become {005...} tokens that the LWC converts to @Name links
-     * on display. Inline images become [[IMG:n]] tokens.
-     */
     private static FlattenedText segmentsToHtml(List<ConnectApi.MessageSegment> segs) {
         FlattenedText r = new FlattenedText();
         if (segs == null) return r;
@@ -343,12 +306,11 @@ public with sharing class ChatterDtoMapper {
 
             } else if (s instanceof ConnectApi.TextSegment) {
                 ConnectApi.TextSegment t = (ConnectApi.TextSegment) s;
-                if (t.text != null) parts.add(t.text);   // NO escapeHtml
+                if (t.text != null) parts.add(escapeHtml(t.text));
+
             } else if (s instanceof ConnectApi.MentionSegment) {
                 ConnectApi.MentionSegment m = (ConnectApi.MentionSegment) s;
                 if (m.record != null) {
-                    // Token form for LWC display + edit round-trip.
-                    // LWC converts {005|Name} → @Name link for rendering.
                     parts.add('{' + m.record.id + '|' + escapeHtml(m.record.name) + '}');
                 }
 
@@ -366,7 +328,7 @@ public with sharing class ChatterDtoMapper {
                     parts.add('<a href="/search/' + safeTag + '">#' + safeTag + '</a>');
                 }
 
-           } else if (s instanceof ConnectApi.InlineImageSegment) {
+            } else if (s instanceof ConnectApi.InlineImageSegment) {
                 ConnectApi.InlineImageSegment img = (ConnectApi.InlineImageSegment) s;
                 ChatterInlineImageDto d = new ChatterInlineImageDto();
                 d.altText = img.altText;

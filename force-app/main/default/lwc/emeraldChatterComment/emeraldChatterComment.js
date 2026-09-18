@@ -36,10 +36,6 @@ export default class EmeraldChatterComment extends LightningElement {
         this._text     = this.comment.text;
     }
 
-    // ============================================================
-    //  LIKE
-    // ============================================================
-
     async handleLike() {
         if (this.liking) return;
         this.liking = true;
@@ -71,10 +67,6 @@ export default class EmeraldChatterComment extends LightningElement {
         }
     }
 
-    // ============================================================
-    //  EDIT
-    // ============================================================
-
     handleEditClick() {
         this.isEditing = true;
         this.editValue = wireTokensToComposerTokens(this._text || '');
@@ -104,13 +96,12 @@ export default class EmeraldChatterComment extends LightningElement {
 
         this.editSaving = true;
         try {
-            const result = await updateCommentWithFiles({
+            const updated = await updateCommentWithFiles({
                 commentId: this.comment.id,
                 text: text || '',
                 newContentVersionIds: []
             });
 
-            const updated = result.comment;
             this._text = updated.text;
             this.isEditing = false;
             this.editValue = '';
@@ -127,10 +118,6 @@ export default class EmeraldChatterComment extends LightningElement {
             this.editSaving = false;
         }
     }
-
-    // ============================================================
-    //  DELETE
-    // ============================================================
 
     handleDeleteClick()  { this.isConfirmingDelete = true; }
     handleDeleteCancel() { this.isConfirmingDelete = false; }
@@ -151,22 +138,11 @@ export default class EmeraldChatterComment extends LightningElement {
         }
     }
 
-    // ============================================================
-    //  GETTERS
-    // ============================================================
-
-    get likeClass() {
-        return `comment-action ${this.liked ? 'comment-action-active' : ''}`;
-    }
-    get likeCountLabel() {
-        return this.likeCount > 0 ? `${this.likeCount}` : '';
-    }
-    get showEditButton() {
-        return this.comment.canEdit === true;
-    }
-    get hasExistingFile() {
-        return this.comment.attachments && this.comment.attachments.length > 0;
-    }
+    get likeClass()      { return `comment-action ${this.liked ? 'comment-action-active' : ''}`; }
+    get likeCountLabel() { return this.likeCount > 0 ? `${this.likeCount}` : ''; }
+    get showEditButton() { return this.comment.canEdit === true; }
+    get showDeleteButton() { return this.comment.canDelete === true; }
+    get hasExistingFile() { return this.comment.attachments && this.comment.attachments.length > 0; }
 
     get renderedCommentHtml() {
         let html = mentionTokensToLinks(this._text || '');

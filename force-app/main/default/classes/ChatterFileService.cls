@@ -2,16 +2,76 @@ public with sharing class ChatterFileService {
 
     private static final Integer MAX_FILES_PER_POST = 10;
     private static final Integer MAX_FILE_BYTES = 5242880;   // 5 MB
-    private static final Set<String> BLOCKED_MIMES = new Set<String>{
-        'text/html',
-        'application/xhtml+xml',
-        'application/javascript',
-        'text/javascript',
-        'application/x-javascript',
-        'image/svg+xml',
-        'application/x-httpd-php',
-        'application/x-sh',
-        'application/x-msdownload'
+
+    /**
+     * MIME types permitted for upload.
+     *
+     * This is an ALLOWLIST. Anything not listed is rejected.
+     *
+     * Deliberately excluded:
+     *   - text/html, application/xhtml+xml (XSS)
+     *   - application/javascript, text/javascript (XSS)
+     *   - image/svg+xml (XSS via embedded scripts)
+     *   - application/xml, text/xml (billion laughs / XXE)
+     *   - .exe, .bat, .sh, .ps1, .msi (executables)
+     *   - .jar, .app, .dmg (bundles)
+     */
+    private static final Set<String> ALLOWED_MIMES = new Set<String>{
+        // ---- Images (raster only — SVG excluded) ----
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'image/bmp',
+        'image/tiff',
+        'image/heic',
+        'image/heif',
+
+        // ---- Documents ----
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.oasis.opendocument.text',
+        'application/vnd.oasis.opendocument.spreadsheet',
+        'application/vnd.oasis.opendocument.presentation',
+        'application/vnd.apple.pages',
+        'application/vnd.apple.numbers',
+        'application/vnd.apple.keynote',
+
+        // ---- Plain text only ----
+        'text/plain',
+        'text/csv',
+        'text/markdown',
+
+        // ---- Archives ----
+        'application/zip',
+        'application/x-zip-compressed',
+        'application/x-rar-compressed',
+        'application/vnd.rar',
+        'application/x-7z-compressed',
+        'application/x-tar',
+        'application/gzip',
+
+        // ---- Audio ----
+        'audio/mpeg',
+        'audio/mp3',
+        'audio/wav',
+        'audio/x-wav',
+        'audio/ogg',
+        'audio/mp4',
+        'audio/aac',
+
+        // ---- Video ----
+        'video/mp4',
+        'video/quicktime',
+        'video/x-msvideo',
+        'video/webm',
+        'video/ogg'
     };
 
     // ============================================================
@@ -70,10 +130,27 @@ public with sharing class ChatterFileService {
         if (String.isBlank(filename))   throw ChatterException.validation('filename is required');
         if (String.isBlank(base64Data)) throw ChatterException.validation('base64Data is required');
 
-        if (String.isNotBlank(mimeType) && BLOCKED_MIMES.contains(mimeType.toLowerCase())) {
-            throw ChatterException.validation('File type not permitted: ' + mimeType);
+        // ---- MIME allowlist check ----
+        // Normalize: strip charset suffix, lowercase, trim
+        // Example: "text/plain; charset=utf-8" → "text/plain"
+        String normalizedMime = '';
+        if (String.isNotBlank(mimeType)) {
+            normalizedMime = mimeType.toLowerCase().split(';')[0].trim();
         }
 
+        if (String.isBlank(normalizedMime)) {
+            throw ChatterException.validation(
+                'File type could not be determined. Please upload a file with a recognized type.'
+            );
+        }
+
+        if (!ALLOWED_MIMES.contains(normalizedMime)) {
+            throw ChatterException.validation(
+                'File type not permitted: ' + normalizedMime
+            );
+        }
+
+        // ---- Size check ----
         Blob decoded;
         try {
             decoded = EncodingUtil.base64Decode(base64Data);
@@ -84,6 +161,7 @@ public with sharing class ChatterFileService {
             throw ChatterException.validation('File exceeds 5 MB limit');
         }
 
+        // ---- Filename sanitization ----
         String safeName = sanitizeFilename(filename);
         if (String.isBlank(safeName)) {
             throw ChatterException.validation('Invalid filename');

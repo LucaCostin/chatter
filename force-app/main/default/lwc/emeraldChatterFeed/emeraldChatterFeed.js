@@ -4,10 +4,9 @@ import getFeed from '@salesforce/apex/ChatterConnectController.getFeed';
 import postFeed from '@salesforce/apex/ChatterConnectController.postFeed';
 import postFeedWithFiles from '@salesforce/apex/ChatterConnectController.postFeedWithFiles';
 import deleteFeedElement from '@salesforce/apex/ChatterConnectController.deleteFeedElement';
-import getFeedEditPermissions from '@salesforce/apex/ChatterConnectController.getFeedEditPermissions';
 import { reduceErrors, relativeTime } from 'c/emeraldChatterUtils';
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 
 export default class EmeraldChatterFeed extends LightningElement {
 
@@ -28,10 +27,6 @@ export default class EmeraldChatterFeed extends LightningElement {
     _lastRecordId;
     _loadToken = 0;
 
-    // ============================================================
-    //  LIFECYCLE
-    // ============================================================
-
     renderedCallback() {
         if (this._lastRecordId !== this.recordId) {
             this._lastRecordId = this.recordId;
@@ -49,10 +44,6 @@ export default class EmeraldChatterFeed extends LightningElement {
         this.errorMessage = undefined;
     }
 
-    // ============================================================
-    //  LOAD
-    // ============================================================
-
     async loadFeed() {
         const token = ++this._loadToken;
         this.isLoading = true;
@@ -67,30 +58,12 @@ export default class EmeraldChatterFeed extends LightningElement {
             this.pageToken = page.nextPageToken;
             this.hasMore = !!page.nextPageToken;
             this.errorMessage = undefined;
-            this.enrichEditPermissions();
         } catch (err) {
             if (token !== this._loadToken) return;
             this.errorMessage = reduceErrors(err);
         } finally {
             if (token === this._loadToken) this.isLoading = false;
         }
-    }
-
-    async enrichEditPermissions() {
-        const needsCheck = this.elements
-            .filter(el => el.canEdit === false && el.actorId)
-            .map(el => el.id);
-        if (!needsCheck.length) return;
-        try {
-            const map = await getFeedEditPermissions({ feedElementIds: needsCheck });
-            if (!map) return;
-            this.elements = this.elements.map(el => {
-                if (map.hasOwnProperty(el.id)) {
-                    return { ...el, canEdit: map[el.id] === true };
-                }
-                return el;
-            });
-        } catch (err) { /* silent */ }
     }
 
     async handleLoadMore() {
@@ -106,7 +79,6 @@ export default class EmeraldChatterFeed extends LightningElement {
             this.elements = [...this.elements, ...more];
             this.pageToken = page.nextPageToken;
             this.hasMore = !!page.nextPageToken;
-            this.enrichEditPermissions();
         } catch (err) {
             this.showToast('Error', reduceErrors(err), 'error');
         } finally {
@@ -118,10 +90,6 @@ export default class EmeraldChatterFeed extends LightningElement {
         this.reset();
         this.loadFeed();
     }
-
-    // ============================================================
-    //  POST
-    // ============================================================
 
     async handlePost(event) {
         const { text, contentVersionIds } = event.detail;
@@ -152,7 +120,6 @@ export default class EmeraldChatterFeed extends LightningElement {
 
             this.elements = [this.decorate(newEl), ...this.elements];
 
-            // Clear the composer
             const composer = this.template.querySelector('c-emerald-chatter-composer');
             if (composer && typeof composer.reset === 'function') composer.reset();
 
@@ -168,10 +135,6 @@ export default class EmeraldChatterFeed extends LightningElement {
         }
     }
 
-    // ============================================================
-    //  DELETE
-    // ============================================================
-
     async handleDelete(event) {
         const { elementId } = event.detail;
         const snapshot = [...this.elements];
@@ -184,10 +147,6 @@ export default class EmeraldChatterFeed extends LightningElement {
             this.showToast('Error', reduceErrors(err), 'error');
         }
     }
-
-    // ============================================================
-    //  CHILD EVENTS
-    // ============================================================
 
     handleEdited(event) {
         const { element } = event.detail;
@@ -205,10 +164,6 @@ export default class EmeraldChatterFeed extends LightningElement {
                 : el
         );
     }
-
-    // ============================================================
-    //  FILTERS
-    // ============================================================
 
     get filterOptions() {
         const mk = (value, label) => ({
@@ -232,10 +187,6 @@ export default class EmeraldChatterFeed extends LightningElement {
         return this.elements;
     }
 
-    // ============================================================
-    //  HELPERS
-    // ============================================================
-
     decorate(el) {
         return {
             ...el,
@@ -248,10 +199,6 @@ export default class EmeraldChatterFeed extends LightningElement {
     showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
     }
-
-    // ============================================================
-    //  GETTERS
-    // ============================================================
 
     get hasElements() { return this.filteredElements.length > 0; }
     get showEmpty() { return !this.isLoading && !this.errorMessage && !this.hasElements; }

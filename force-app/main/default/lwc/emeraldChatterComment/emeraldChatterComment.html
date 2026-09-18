@@ -63,9 +63,11 @@
                             <lightning-icon icon-name="utility:edit" size="xx-small"></lightning-icon>
                         </button>
                     </template>
-                    <button class="comment-action" onclick={handleDeleteClick} title="Delete">
-                        <lightning-icon icon-name="utility:delete" size="xx-small"></lightning-icon>
-                    </button>
+                    <template if:true={showDeleteButton}>
+                        <button class="comment-action" onclick={handleDeleteClick} title="Delete">
+                            <lightning-icon icon-name="utility:delete" size="xx-small"></lightning-icon>
+                        </button>
+                    </template>
                 </template>
 
                 <template if:true={isConfirmingDelete}>

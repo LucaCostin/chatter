@@ -102,9 +102,7 @@ private class ChatterConnectControllerTest {
             ChatterConnectController.postFeed(
                 '001' + '000000000000', 'smoke test', 'FeedItem'
             );
-        } catch (Exception e) {
-            // Connect API rejects without mocks — coverage is the goal
-        }
+        } catch (Exception e) { }
         System.assert(true);
     }
 
@@ -247,38 +245,5 @@ private class ChatterConnectControllerTest {
             System.assert(false);
         } catch (Exception e) { }
         System.assert(true);
-    }
-
-    // ============================================================
-    //  ENRICHMENT
-    // ============================================================
-
-    @isTest
-    static void testGetFeedEditPermissionsEmpty() {
-        Test.startTest();
-        Map<String, Boolean> result =
-            ChatterConnectController.getFeedEditPermissions(new List<String>());
-        Test.stopTest();
-        System.assertNotEquals(null, result);
-        System.assertEquals(0, result.size());
-    }
-
-    @isTest
-    static void testGetFeedEditPermissionsOverCap() {
-        List<String> ids = new List<String>();
-        for (Integer i = 0; i < 100; i++) ids.add('0D5' + '00000000000' + i);
-        Test.startTest();
-        Map<String, Boolean> result = ChatterConnectController.getFeedEditPermissions(ids);
-        Test.stopTest();
-        System.assertNotEquals(null, result);
-    }
-
-    @isTest
-    static void testGetCommentEnrichmentEmpty() {
-        Test.startTest();
-        List<ChatterCommentDto> result =
-            ChatterConnectController.getCommentEnrichment(new List<String>());
-        Test.stopTest();
-        System.assertEquals(0, result.size());
     }
 }
