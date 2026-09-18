@@ -5,24 +5,35 @@
         <members>ChatterCommentDto</members>
         <members>ChatterCommentPageDto</members>
         <members>ChatterCommentService</members>
+        <members>ChatterCommentServiceTest</members>
         <members>ChatterCommunityContext</members>
         <members>ChatterConfigDto</members>
         <members>ChatterConfigService</members>
+        <members>ChatterConfigServiceTest</members>
         <members>ChatterConnectController</members>
+        <members>ChatterConnectControllerTest</members>
         <members>ChatterDtoMapper</members>
+        <members>ChatterDtoMapperTest</members>
         <members>ChatterException</members>
+        <members>ChatterExceptionTest</members>
+        <members>ChatterFeedBodyHelper</members>
+        <members>ChatterFeedBodyHelperTest</members>
         <members>ChatterFeedElementDto</members>
         <members>ChatterFeedPageDto</members>
         <members>ChatterFeedService</members>
+        <members>ChatterFeedServiceTest</members>
         <members>ChatterFileService</members>
+        <members>ChatterFileServiceTest</members>
+        <members>ChatterHtmlSanitizer</members>
+        <members>ChatterHtmlSanitizerTest</members>
+        <members>ChatterInlineImageDto</members>
         <members>ChatterMentionDto</members>
         <members>ChatterMentionService</members>
-        <members>ChatterRecordDto</members>
-        <members>ChatterHtmlSanitizer</members>
+        <members>ChatterMentionServiceTest</members>
         <members>ChatterPostResultDto</members>
-        <members>ChatterInlineImageDto</members>
+        <members>ChatterRecordDto</members>
         <members>ChatterSoqlSanitizer</members>
-        <members>ChatterFeedBodyHelper</members>
+        <members>ChatterSoqlSanitizerTest</members>
         <members>ConnectApiHelper</members>
         <members>ConnectApiHelperTest</members>
         <name>ApexClass</name>
@@ -34,8 +45,8 @@
         <members>emeraldChatterComposer</members>
         <members>emeraldChatterFeed</members>
         <members>emeraldChatterFeedItem</members>
-        <members>emeraldChatterUtils</members>
         <members>emeraldChatterRichComposer</members>
+        <members>emeraldChatterUtils</members>
         <name>LightningComponentBundle</name>
     </types>
     <version>67.0</version>
