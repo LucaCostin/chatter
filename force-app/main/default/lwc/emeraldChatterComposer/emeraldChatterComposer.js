@@ -5,6 +5,7 @@ import uploadFile from '@salesforce/apex/ChatterConnectController.uploadFile';
 import { reduceErrors, normalizeRichTextHtml, stripHtml } from 'c/emeraldChatterUtils';
 
 const MAX_LENGTH = 10000;
+const MAX_FILE_BYTES = 5242880;
 
 export default class EmeraldChatterComposer extends LightningElement {
 
@@ -32,7 +33,7 @@ export default class EmeraldChatterComposer extends LightningElement {
     // ===== Internal state =====
     @track currentUser;
     @track text = '';
-    @track pendingFiles = [];
+    @track pendingFiles = [];   // each: { file, id, name, sizeLabel, uploading }
     @track isSubmitting = false;
 
     _initialValue = '';
@@ -55,7 +56,7 @@ export default class EmeraldChatterComposer extends LightningElement {
     }
 
     // ============================================================
-    //  FILES
+    //  FILES — store File objects, no upload yet
     // ============================================================
 
     openFilePicker() {
@@ -63,37 +64,89 @@ export default class EmeraldChatterComposer extends LightningElement {
         if (input) input.click();
     }
 
-    async handleFileChosen(event) {
+    handleFileChosen(event) {
         const files = Array.from(event.target.files || []);
         event.target.value = '';
         if (!files.length) return;
 
+        const next = [...this.pendingFiles];
         for (const file of files) {
-            const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-            this.pendingFiles = [
-                ...this.pendingFiles,
-                {
-                    id: tempId, key: tempId,
-                    name: file.name,
-                    sizeLabel: this.formatSize(file.size),
-                    uploading: true,
-                    contentDocumentId: null
-                }
-            ];
-
-            try {
-                const contentVersionId = await this.uploadOne(file);
-                this.pendingFiles = this.pendingFiles.map(f =>
-                    f.id === tempId
-                        ? { ...f, id: contentVersionId, key: contentVersionId,
-                            contentDocumentId: contentVersionId, uploading: false }
-                        : f
-                );
-            } catch (err) {
-                this.pendingFiles = this.pendingFiles.filter(f => f.id !== tempId);
-                this.showToast('Upload failed', reduceErrors(err), 'error');
+            // Client-side size guard — fail fast without an Apex round-trip
+            if (file.size > MAX_FILE_BYTES) {
+                this.showToast('File too large',
+                    `${file.name} exceeds the 5 MB limit.`, 'warning');
+                continue;
             }
+
+            next.push({
+                file,                                        // the raw File object
+                id: 'temp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+                key: 'temp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+                name: file.name,
+                sizeLabel: this.formatSize(file.size),
+                uploading: false
+            });
         }
+        this.pendingFiles = next;
+    }
+
+    handleRemoveFile(event) {
+        const id = event.currentTarget.dataset.id;
+        this.pendingFiles = this.pendingFiles.filter(f => f.id !== id);
+    }
+
+    formatSize(bytes) {
+        if (!bytes && bytes !== 0) return '';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    // ============================================================
+    //  SUBMIT — upload files, then fire the event
+    // ============================================================
+
+    async handleSubmit() {
+        const plain = stripHtml(this.text || '').trim();
+        const hasFiles = this.pendingFiles.length > 0;
+
+        if (!plain && !hasFiles) return;
+        if (plain.length > MAX_LENGTH) {
+            this.showToast('Too long', `Keep it under ${MAX_LENGTH} characters.`, 'warning');
+            return;
+        }
+        if (this.disabled || this.isSubmitting) return;
+
+        this.isSubmitting = true;
+
+        // Mark all files as uploading — the UI shows a spinner per chip
+        this.pendingFiles = this.pendingFiles.map(f => ({ ...f, uploading: true }));
+
+        const contentVersionIds = [];
+
+        try {
+            for (const f of this.pendingFiles) {
+                const cvId = await this.uploadOne(f.file);
+                contentVersionIds.push(cvId);
+            }
+        } catch (err) {
+            // Abort: clear the uploading flag, keep the files so the user can retry
+            this.pendingFiles = this.pendingFiles.map(f => ({ ...f, uploading: false }));
+            this.isSubmitting = false;
+            this.showToast('Upload failed', reduceErrors(err), 'error');
+            return;
+        }
+
+        const htmlForServer = normalizeRichTextHtml(this.text);
+
+        this.dispatchEvent(new CustomEvent('submit', {
+            detail: { text: htmlForServer, contentVersionIds }
+        }));
+
+        // The parent will call reset() on success. We clear isSubmitting here
+        // rather than blocking the parent's workflow — the parent controls
+        // the actual server round-trip.
+        this.isSubmitting = false;
     }
 
     async uploadOne(file) {
@@ -118,43 +171,9 @@ export default class EmeraldChatterComposer extends LightningElement {
         });
     }
 
-    handleRemoveFile(event) {
-        const id = event.currentTarget.dataset.id;
-        this.pendingFiles = this.pendingFiles.filter(f => f.id !== id);
-    }
-
-    formatSize(bytes) {
-        if (!bytes && bytes !== 0) return '';
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    }
-
     // ============================================================
-    //  SUBMIT / CANCEL
+    //  CANCEL / KEYBOARD
     // ============================================================
-
-    handleSubmit() {
-        const plain = stripHtml(this.text || '').trim();
-        const contentVersionIds = this.pendingFiles
-            .filter(f => !f.uploading)
-            .map(f => f.contentDocumentId);
-        const hasFiles = contentVersionIds.length > 0;
-
-        if (!plain && !hasFiles) return;
-        if (plain.length > MAX_LENGTH) {
-            this.showToast('Too long', `Keep it under ${MAX_LENGTH} characters.`, 'warning');
-            return;
-        }
-        if (this.disabled || this.isSubmitting) return;
-
-        const htmlForServer = normalizeRichTextHtml(this.text);
-
-        this.dispatchEvent(new CustomEvent('submit', {
-            detail: { text: htmlForServer, contentVersionIds }
-        }));
-        // Parent clears via .reset() on success
-    }
 
     handleCancel() {
         this.dispatchEvent(new CustomEvent('cancel'));
@@ -168,7 +187,7 @@ export default class EmeraldChatterComposer extends LightningElement {
     }
 
     // ============================================================
-    //  PUBLIC METHODS (called by parents)
+    //  PUBLIC METHODS
     // ============================================================
 
     @api
@@ -176,6 +195,7 @@ export default class EmeraldChatterComposer extends LightningElement {
         this.text = '';
         this._initialValue = '';
         this.pendingFiles = [];
+        this.isSubmitting = false;
         const rc = this.template.querySelector('c-emerald-chatter-rich-composer');
         if (rc && typeof rc.clear === 'function') rc.clear();
     }
@@ -215,10 +235,8 @@ export default class EmeraldChatterComposer extends LightningElement {
 
     get canSubmit() {
         const hasText = stripHtml(this.text || '').trim().length > 0;
-        const hasReadyFile = this.pendingFiles.some(f => !f.uploading);
-        const stillUploading = this.pendingFiles.some(f => f.uploading);
-        return (hasText || hasReadyFile)
-            && !stillUploading
+        const hasFiles = this.pendingFiles.length > 0;
+        return (hasText || hasFiles)
             && !this.disabled
             && !this.isSubmitting
             && !this.overLimit;
