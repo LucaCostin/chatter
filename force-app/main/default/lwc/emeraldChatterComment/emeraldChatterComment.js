@@ -70,7 +70,6 @@ export default class EmeraldChatterComment extends LightningElement {
     handleEditClick() {
         this.isEditing = true;
         this.editValue = wireTokensToComposerTokens(this._text || '');
-        // eslint-disable-next-line @lwc/lwc/no-async-operation
         setTimeout(() => {
             const c = this.template.querySelector('c-emerald-chatter-composer.comment-edit-rte');
             if (c && typeof c.setValue === 'function') {

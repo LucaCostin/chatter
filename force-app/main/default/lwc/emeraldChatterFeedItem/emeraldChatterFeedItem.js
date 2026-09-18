@@ -2,6 +2,7 @@ import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getComments from '@salesforce/apex/ChatterConnectController.getComments';
 import postComment from '@salesforce/apex/ChatterConnectController.postComment';
+import postCommentWithFiles from '@salesforce/apex/ChatterConnectController.postCommentWithFiles';
 import likeFeedElement from '@salesforce/apex/ChatterConnectController.likeFeedElement';
 import unlikeFeedElement from '@salesforce/apex/ChatterConnectController.unlikeFeedElement';
 import updateFeedWithFiles from '@salesforce/apex/ChatterConnectController.updateFeedWithFiles';
@@ -18,18 +19,22 @@ const COMMENT_PAGE_SIZE = 10;
 
 export default class EmeraldChatterFeedItem extends LightningElement {
 
+    // ===== Comment thread state =====
     @track commentsOpen = false;
     @track comments = [];
     @track commentsLoading = false;
     @track commentsPageToken = null;
     @track commentsHasMore = false;
 
+    // ===== Post edit state =====
     @track isEditing = false;
     @track editValue = '';
     @track editSaving = false;
 
+    // ===== Post delete state =====
     @track isConfirmingDelete = false;
 
+    // ===== Internal working copy of the element prop =====
     _element;
     _el;
 
@@ -82,23 +87,10 @@ export default class EmeraldChatterFeedItem extends LightningElement {
     }
 
     // ============================================================
-    //  EDIT
+    //  POST EDIT
     // ============================================================
 
-    async handleEditClick() {
-        // Own posts are always editable — skip the verification
-        if (this._el.actorId && this._el.actorId === this._currentUserId()) {
-            this._enterEditMode();
-            return;
-        }
-
-        // Optimistic canEdit is true. Verification happens here.
-        // We trust isEditRestricted = false from the feed response.
-        // If the click fails at save time, we'll toast.
-        this._enterEditMode();
-    }
-
-    _enterEditMode() {
+    handleEditClick() {
         this.isEditing = true;
         this.editValue = wireTokensToComposerTokens(this._el.text || '');
         // eslint-disable-next-line @lwc/lwc/no-async-operation
@@ -109,11 +101,6 @@ export default class EmeraldChatterFeedItem extends LightningElement {
                 if (typeof c.focus === 'function') c.focus();
             }
         }, 0);
-    }
-
-    _currentUserId() {
-        // Read from a global or from the DTO; if not available, skip the shortcut
-        return this._el.actorId;
     }
 
     handleEditChange(event) {
@@ -185,7 +172,7 @@ export default class EmeraldChatterFeedItem extends LightningElement {
                 pageToken: null,
                 pageSize: COMMENT_PAGE_SIZE
             });
-            // Likes and canEdit come fully populated from the Comment object
+            // Likes and canEdit arrive fully populated from the Comment object
             this.comments = (page.comments || []).map(c => this.decorateComment(c));
             this.commentsPageToken = page.nextPageToken;
             this.commentsHasMore = !!page.nextPageToken;
@@ -217,20 +204,32 @@ export default class EmeraldChatterFeedItem extends LightningElement {
     }
 
     async handleCommentSubmit(event) {
-        const { text } = event.detail;
+        const { text, contentVersionIds } = event.detail;
         const plain = stripHtml(text || '').trim();
-        if (!plain) return;
+        const hasFiles = contentVersionIds && contentVersionIds.length > 0;
+
+        if (!plain && !hasFiles) return;
 
         try {
-            const created = await postComment({
-                feedElementId: this._el.id,
-                text: text || ''
-            });
+            let created;
+            if (hasFiles) {
+                created = await postCommentWithFiles({
+                    feedElementId: this._el.id,
+                    text: text || '',
+                    contentVersionIds
+                });
+            } else {
+                created = await postComment({
+                    feedElementId: this._el.id,
+                    text: text || ''
+                });
+            }
 
             if (created) {
                 this.comments = [this.decorateComment(created), ...this.comments];
             }
 
+            // Reset the composer
             const c = this.template.querySelector('c-emerald-chatter-composer.comment-composer-rt');
             if (c && typeof c.reset === 'function') c.reset();
 
@@ -261,7 +260,7 @@ export default class EmeraldChatterFeedItem extends LightningElement {
     }
 
     // ============================================================
-    //  DELETE
+    //  POST DELETE
     // ============================================================
 
     handleDeleteClick()  { this.isConfirmingDelete = true; }
@@ -274,7 +273,7 @@ export default class EmeraldChatterFeedItem extends LightningElement {
     }
 
     // ============================================================
-    //  ATTACHMENTS
+    //  ATTACHMENT DELETION (post-level)
     // ============================================================
 
     handleAttachmentDeleted(event) {
@@ -293,6 +292,10 @@ export default class EmeraldChatterFeedItem extends LightningElement {
     handleAttachmentDeleteError(event) {
         this.showToast('Error', event.detail.message, 'error');
     }
+
+    // ============================================================
+    //  HELPERS
+    // ============================================================
 
     decorateComment(c) {
         return {
